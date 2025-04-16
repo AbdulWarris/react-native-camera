@@ -1,63 +1,26 @@
 #import <UIKit/UIKit.h>
 
-// Define enum values for when MLKit is not available
-#if !__has_include(<GoogleMLKit/MLKFaceDetector.h>)
-typedef NS_ENUM(NSInteger, MLKFaceDetectorPerformanceMode) {
-    MLKFaceDetectorPerformanceModeFast = 0,
-    MLKFaceDetectorPerformanceModeAccurate = 1
-};
-
-typedef NS_ENUM(NSInteger, MLKFaceDetectorLandmarkMode) {
-    MLKFaceDetectorLandmarkModeNone = 0,
-    MLKFaceDetectorLandmarkModeAll = 1
-};
-
-typedef NS_ENUM(NSInteger, MLKFaceDetectorClassificationMode) {
-    MLKFaceDetectorClassificationModeNone = 0,
-    MLKFaceDetectorClassificationModeAll = 1
-};
-
-typedef NS_ENUM(NSInteger, MLKFaceLandmarkType) {
-    MLKFaceLandmarkTypeLeftEar,
-    MLKFaceLandmarkTypeRightEar,
-    MLKFaceLandmarkTypeMouthBottom,
-    MLKFaceLandmarkTypeMouthRight,
-    MLKFaceLandmarkTypeMouthLeft,
-    MLKFaceLandmarkTypeLeftEye,
-    MLKFaceLandmarkTypeRightEye,
-    MLKFaceLandmarkTypeLeftCheek,
-    MLKFaceLandmarkTypeRightCheek,
-    MLKFaceLandmarkTypeNoseBase
-};
-
-@class MLKVisionPoint;
-@class MLKFaceLandmark;
-@class MLKFace;
-#endif
-
+// Import MLKit if available
 #if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
 #import <GoogleMLKit/MLKFaceDetector.h>
 #import <GoogleMLKit/MLKFace.h>
 #import <GoogleMLKit/MLKVisionImage.h>
-#else
-@class MLKFaceDetector;
-@class MLKFace; 
-@class MLKVisionImage;
 #endif
 
+// Define our wrapper enums that map to MLKit's enums
 typedef NS_ENUM(NSInteger, RNFaceDetectionMode) {
-    RNFaceDetectionFastMode = MLKFaceDetectorPerformanceModeFast,
-    RNFaceDetectionAccurateMode = MLKFaceDetectorPerformanceModeAccurate
+    RNFaceDetectionFastMode = 0,      // Maps to MLKFaceDetectorPerformanceModeFast
+    RNFaceDetectionAccurateMode = 1   // Maps to MLKFaceDetectorPerformanceModeAccurate
 };
 
 typedef NS_ENUM(NSInteger, RNFaceDetectionLandmarks) {
-    RNFaceDetectAllLandmarks = MLKFaceDetectorLandmarkModeAll,
-    RNFaceDetectNoLandmarks = MLKFaceDetectorLandmarkModeNone
+    RNFaceDetectAllLandmarks = 1,     // Maps to MLKFaceDetectorLandmarkModeAll
+    RNFaceDetectNoLandmarks = 0       // Maps to MLKFaceDetectorLandmarkModeNone
 };
 
 typedef NS_ENUM(NSInteger, RNFaceDetectionClassifications) {
-    RNFaceRunAllClassifications = MLKFaceDetectorClassificationModeAll,
-    RNFaceRunNoClassifications = MLKFaceDetectorClassificationModeNone
+    RNFaceRunAllClassifications = 1,  // Maps to MLKFaceDetectorClassificationModeAll
+    RNFaceRunNoClassifications = 0    // Maps to MLKFaceDetectorClassificationModeNone
 };
 
 @interface FaceDetectorManagerMlkit : NSObject

@@ -3,88 +3,21 @@
 
 NSString *const LOG_TAG = @"FaceDetectorMLKit";
 
-// Add MLKit class stubs when not available
-#if !__has_include(<GoogleMLKit/MLKFaceDetector.h>)
-@interface MLKFaceDetectorOptions : NSObject
-@property(nonatomic) int performanceMode;
-@property(nonatomic) int landmarkMode;
-@property(nonatomic) int classificationMode;
-@property(nonatomic) BOOL trackingEnabled;
-@property(nonatomic) float minFaceSize;
-@end
-
-@implementation MLKFaceDetectorOptions
-@end
-
-@interface MLKVisionPoint : NSObject
-@property(nonatomic, readonly) CGFloat x;
-@property(nonatomic, readonly) CGFloat y;
-- (instancetype)init NS_UNAVAILABLE;
-@end
-
-@implementation MLKVisionPoint
-@end
-
-@interface MLKFaceLandmark : NSObject
-@property(nonatomic, readonly) MLKVisionPoint *position;
-@end
-
-@implementation MLKFaceLandmark
-@end
-
-@interface MLKFace : NSObject
-@property(nonatomic, readonly) CGRect frame;
-@property(nonatomic, readonly) BOOL hasTrackingID;
-@property(nonatomic, readonly) NSInteger trackingID;
-@property(nonatomic, readonly) BOOL hasHeadEulerAngleY;
-@property(nonatomic, readonly) CGFloat headEulerAngleY;
-@property(nonatomic, readonly) BOOL hasHeadEulerAngleZ;
-@property(nonatomic, readonly) CGFloat headEulerAngleZ;
-@property(nonatomic, readonly) BOOL hasSmilingProbability;
-@property(nonatomic, readonly) CGFloat smilingProbability;
-@property(nonatomic, readonly) BOOL hasLeftEyeOpenProbability;
-@property(nonatomic, readonly) CGFloat leftEyeOpenProbability;
-@property(nonatomic, readonly) BOOL hasRightEyeOpenProbability;
-@property(nonatomic, readonly) CGFloat rightEyeOpenProbability;
-- (MLKFaceLandmark *)landmarkOfType:(MLKFaceLandmarkType)type;
-@end
-
-@implementation MLKFace
-- (MLKFaceLandmark *)landmarkOfType:(MLKFaceLandmarkType)type {
-    return nil;
-}
-@end
-
-@interface MLKFaceDetector : NSObject
-+ (instancetype)faceDetectorWithOptions:(MLKFaceDetectorOptions *)options;
-- (void)processImage:(UIImage *)image 
-         completion:(void (^)(NSArray<MLKFace *> *faces, NSError *error))completion;
-@end
-
-@implementation MLKFaceDetector
-+ (instancetype)faceDetectorWithOptions:(MLKFaceDetectorOptions *)options {
-    return [[MLKFaceDetector alloc] init];
-}
-- (void)processImage:(UIImage *)image 
-         completion:(void (^)(NSArray<MLKFace *> *faces, NSError *error))completion {
-    completion(@[], nil);
-}
-@end
-#endif
-
+// Only import MLKit, don't define stubs
 #if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
 #import <GoogleMLKit/MLKFaceDetector.h>
 #import <GoogleMLKit/MLKFace.h>
 #import <GoogleMLKit/MLKVisionImage.h>
-#else
-@class MLKFaceDetector;
-@class MLKFace;
-@class MLKVisionImage;  
 #endif
 
 @interface FaceDetectorManagerMlkit ()
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
 @property(nonatomic, strong) MLKFaceDetector *faceRecognizer;
 @property(nonatomic, strong) MLKFaceDetectorOptions *options;
+#else
+@property(nonatomic, strong) id faceRecognizer;
+@property(nonatomic, strong) id options;
+#endif
 @property(nonatomic, assign) float scaleX;
 @property(nonatomic, assign) float scaleY;
 @end
@@ -143,58 +76,62 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
 
 - (void)setTracking:(id)json queue:(dispatch_queue_t)sessionQueue 
 {
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
   BOOL requestedValue = [RCTConvert BOOL:json];
   if (requestedValue != self.options.trackingEnabled) {
       if (sessionQueue) {
           dispatch_async(sessionQueue, ^{
               self.options.trackingEnabled = requestedValue;
-              self.faceRecognizer =
-              [MLKFaceDetector faceDetectorWithOptions:self.options];
+              self.faceRecognizer = [MLKFaceDetector faceDetectorWithOptions:self.options];
           });
       }
   }
+#endif
 }
 
 - (void)setLandmarksMode:(id)json queue:(dispatch_queue_t)sessionQueue 
 {
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
     long requestedValue = [RCTConvert NSInteger:json];
     if (requestedValue != self.options.landmarkMode) {
         if (sessionQueue) {
             dispatch_async(sessionQueue, ^{
                 self.options.landmarkMode = requestedValue;
-                self.faceRecognizer =
-                [MLKFaceDetector faceDetectorWithOptions:self.options];
+                self.faceRecognizer = [MLKFaceDetector faceDetectorWithOptions:self.options];
             });
         }
     }
+#endif
 }
 
 - (void)setPerformanceMode:(id)json queue:(dispatch_queue_t)sessionQueue 
 {
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
     long requestedValue = [RCTConvert NSInteger:json];
     if (requestedValue != self.options.performanceMode) {
         if (sessionQueue) {
             dispatch_async(sessionQueue, ^{
                 self.options.performanceMode = requestedValue;
-                self.faceRecognizer =
-                [MLKFaceDetector faceDetectorWithOptions:self.options];
+                self.faceRecognizer = [MLKFaceDetector faceDetectorWithOptions:self.options];
             });
         }
     }
+#endif
 }
 
 - (void)setClassificationMode:(id)json queue:(dispatch_queue_t)sessionQueue 
 {
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
     long requestedValue = [RCTConvert NSInteger:json];
     if (requestedValue != self.options.classificationMode) {
         if (sessionQueue) {
             dispatch_async(sessionQueue, ^{
                 self.options.classificationMode = requestedValue;
-                self.faceRecognizer =
-                [MLKFaceDetector faceDetectorWithOptions:self.options];
+                self.faceRecognizer = [MLKFaceDetector faceDetectorWithOptions:self.options];
             });
         }
     }
+#endif
 }
 
 - (void)findFacesInFrame:(UIImage *)uiImage
@@ -231,6 +168,7 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
 - (NSArray *)processFaces:(NSArray *)faces 
 {
     NSMutableArray *result = [[NSMutableArray alloc] init];
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
     for (MLKFace *face in faces) {
         NSMutableDictionary *resultDict =
         [[NSMutableDictionary alloc] initWithCapacity:20];
@@ -317,6 +255,7 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
         }
         [result addObject:resultDict];
     }
+#endif
     return result;
 }
 
@@ -333,10 +272,17 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
     return boundsDict;
 }
 
-- (NSDictionary *)processPoint:(MLKVisionPoint *)point
+- (NSDictionary *)processPoint:(id)point
 {
-    float originX = point.x * _scaleX;
-    float originY = point.y * _scaleY;
+    float originX = 0;
+    float originY = 0;
+    
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
+    MLKVisionPoint *visionPoint = (MLKVisionPoint *)point;
+    originX = visionPoint.x * _scaleX;
+    originY = visionPoint.y * _scaleY;
+#endif
+    
     NSDictionary *pointDict = @{
                                 @"x" : @(originX),
                                 @"y" : @(originY)
