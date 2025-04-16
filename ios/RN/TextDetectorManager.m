@@ -1,13 +1,6 @@
 #import "TextDetectorManager.h"
-#if __has_include(<GoogleMLKit/MLKTextRecognizer.h>)
-#import <GoogleMLKit/MLKTextRecognizer.h>
-#import <GoogleMLKit/MLKText.h>
-#import <GoogleMLKit/MLKVisionImage.h>
-#else
-@class MLKTextRecognizer;
-@class MLKText;
-@class MLKVisionImage;
-#endif
+#if __has_include(<MLKitTextRecognition/MLKitTextRecognition.h>)
+@import MLKitVision;
 
 @interface TextDetectorManager ()
 @property(nonatomic, strong) MLKTextRecognizer *textRecognizer;
@@ -103,3 +96,30 @@
 }
 
 @end
+#else
+
+@interface TextDetectorManager ()
+@end
+
+@implementation TextDetectorManager
+
+- (instancetype)init
+{
+  self = [super init];
+  return self;
+}
+
+- (BOOL)isRealDetector
+{
+  return false;
+}
+
+- (void)findTextBlocksInFrame:(UIImage *)image scaleX:(float)scaleX scaleY:(float) scaleY completed:(postRecognitionBlock)completed;
+{
+  NSLog(@"TextDetector not installed, stub used!");
+  NSArray *features = @[@"Error, Text Detector not installed"];
+  completed(features);
+}
+
+@end
+#endif
