@@ -1,5 +1,40 @@
 #import <UIKit/UIKit.h>
 
+// Define enum values for when MLKit is not available
+#if !__has_include(<GoogleMLKit/MLKFaceDetector.h>)
+typedef NS_ENUM(NSInteger, MLKFaceDetectorPerformanceMode) {
+    MLKFaceDetectorPerformanceModeFast = 0,
+    MLKFaceDetectorPerformanceModeAccurate = 1
+};
+
+typedef NS_ENUM(NSInteger, MLKFaceDetectorLandmarkMode) {
+    MLKFaceDetectorLandmarkModeNone = 0,
+    MLKFaceDetectorLandmarkModeAll = 1
+};
+
+typedef NS_ENUM(NSInteger, MLKFaceDetectorClassificationMode) {
+    MLKFaceDetectorClassificationModeNone = 0,
+    MLKFaceDetectorClassificationModeAll = 1
+};
+
+typedef NS_ENUM(NSInteger, MLKFaceLandmarkType) {
+    MLKFaceLandmarkTypeLeftEar,
+    MLKFaceLandmarkTypeRightEar,
+    MLKFaceLandmarkTypeMouthBottom,
+    MLKFaceLandmarkTypeMouthRight,
+    MLKFaceLandmarkTypeMouthLeft,
+    MLKFaceLandmarkTypeLeftEye,
+    MLKFaceLandmarkTypeRightEye,
+    MLKFaceLandmarkTypeLeftCheek,
+    MLKFaceLandmarkTypeRightCheek,
+    MLKFaceLandmarkTypeNoseBase
+};
+
+@class MLKVisionPoint;
+@class MLKFaceLandmark;
+@class MLKFace;
+#endif
+
 #if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
 #import <GoogleMLKit/MLKFaceDetector.h>
 #import <GoogleMLKit/MLKFace.h>

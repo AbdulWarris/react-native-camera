@@ -1,12 +1,16 @@
 #if __has_include(<MLKitTextRecognition/MLKitTextRecognition.h>)
-  @import MLKitTextRecognition;
+  #import <MLKitTextRecognition/MLKitTextRecognition.h>
 #endif
-  @interface TextDetectorManager : NSObject
-  typedef void(^postRecognitionBlock)(NSArray *textBlocks);
 
-  - (instancetype)init;
+@interface TextDetectorManager : NSObject
 
-  -(BOOL)isRealDetector;
-  -(void)findTextBlocksInFrame:(UIImage *)image scaleX:(float)scaleX scaleY:(float)scaleY completed:(postRecognitionBlock)completed;
+typedef void(^postRecognitionBlock)(NSArray *textBlocks);
 
-  @end
+- (instancetype)init;
+- (BOOL)isRealDetector;
+- (void)findTextBlocksInFrame:(UIImage *)image 
+                      scaleX:(float)scaleX 
+                      scaleY:(float)scaleY 
+                   completed:(postRecognitionBlock)completed;
+
+@end

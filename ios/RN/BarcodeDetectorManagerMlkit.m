@@ -25,7 +25,9 @@
 - (instancetype)init
 {
   if (self = [super init]) {
+#if __has_include(<GoogleMLKit/MLKBarcodeScanner.h>)
     self.barcodeRecognizer = [MLKBarcodeScanner barcodeScanner];
+#endif
   }
   return self;
 }
@@ -67,11 +69,13 @@
       if (sessionQueue) {
           dispatch_async(sessionQueue, ^{
               self.setOption = requestedValue;
+#if __has_include(<GoogleMLKit/MLKBarcodeScanner.h>)
               MLKBarcodeScannerOptions *options =
               [[MLKBarcodeScannerOptions alloc]
               initWithFormats: requestedValue];
               self.barcodeRecognizer =
               [MLKBarcodeScanner barcodeScannerWithOptions:options];
+#endif
           });
       }
   }
@@ -90,8 +94,9 @@
 {
     self.scaleX = scaleX;
     self.scaleY = scaleY;
-    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:uiImage];
     NSMutableArray *emptyResult = [[NSMutableArray alloc] init];
+#if __has_include(<GoogleMLKit/MLKBarcodeScanner.h>)
+    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:uiImage];
     [_barcodeRecognizer processImage:visionImage
         completion:^(NSArray<MLKBarcode *> *barcodes, NSError *error) {
             if (error != nil || barcodes == nil) {
@@ -100,6 +105,9 @@
                 completed([self processBarcodes:barcodes imageContainingBarcodes:uiImage]);
             }
         }];
+#else
+    completed(emptyResult);
+#endif
 }
 
 - (NSArray *)processBarcodes:(NSArray *)barcodes imageContainingBarcodes:(UIImage *)imageContainingBarcodes
@@ -250,7 +258,7 @@
     return result;
 }
 
-- (NSString *)getType:(int)type
+- (NSString *)getType:(MLKBarcodeValueType)type
 {
     NSString *barcodeType = @"UNKNOWN";
     switch (type) {
@@ -287,13 +295,16 @@
         case MLKBarcodeValueTypeProduct:
             barcodeType = @"PRODUCT";
             break;
+        case MLKBarcodeValueTypeURL:
+            barcodeType = @"URL";
+            break;
         default:
             break;
     }
     return barcodeType;
 }
 
-- (NSString *)getPhoneType:(int)type
+- (NSString *)getPhoneType:(MLKBarcodePhoneType)type
 {
     NSString *typeString = @"UNKNOWN";
     switch (type) {
@@ -312,7 +323,7 @@
     return typeString;
 }
 
-- (NSString *)getEmailType:(int)type
+- (NSString *)getEmailType:(MLKBarcodeEmailType)type
 {
     NSString *typeString = @"UNKNOWN";
     switch (type) {
@@ -332,7 +343,7 @@
     NSString *number = @"";
     NSString *typeString = @"UNKNOWN";
     if (phone) {
-        typeString = [self getPhoneType:phone.type];
+        typeString = [self getPhoneType:(MLKBarcodePhoneType)phone.type];
         number = phone.number;
     }
     return @{@"number" : number, @"phoneType" : typeString};
@@ -343,14 +354,14 @@
     NSArray *addressLines = [[NSArray alloc] init];
     NSString *typeString = @"UNKNOWN";
     if (address) {
-        int type = address.type;
-        NSString *typeString = @"UNKNOWN";
+        MLKBarcodeAddressType type = (MLKBarcodeAddressType)address.type;
         switch (type) {
             case MLKBarcodeAddressTypeWork:
                 typeString = @"Work";
                 break;
             case MLKBarcodeAddressTypeHome:
                 typeString = @"Home";
+                break;
             default:
                 break;
         }
@@ -369,7 +380,7 @@
         if (email.subject) { subject = email.subject; }
         if (email.address) { address = email.address; }
         if (email.body) { body = email.body; }
-        typeString = [self getEmailType:email.type];
+        typeString = [self getEmailType:(MLKBarcodeEmailType)email.type];
     }
     return @{@"subject" : subject, @"body" : body, @"address" : address, @"emailType" : typeString};
 }

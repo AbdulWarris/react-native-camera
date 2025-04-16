@@ -4,9 +4,10 @@
 #import <UIKit/UIKit.h>
 
 #import "FaceDetectorManagerMlkit.h"
-#import "BarcodeDetectorManagerMlkit.h"
 #import "TextDetectorManager.h"
 
+// Forward declare BarcodeDetectorManagerMlkit - optional
+@class BarcodeDetectorManagerMlkit;
 @class RNCamera;
 @class RNCustomWhiteBalanceSettings;
 
@@ -24,10 +25,9 @@
 @property(nonatomic, strong) AVCaptureVideoDataOutput *videoDataOutput;
 @property(nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
 @property(nonatomic, strong) id runtimeErrorHandlingObserver;
-@property(nonatomic, strong) NSArray *barCodeTypes;
-@property(nonatomic, strong) NSArray *googleVisionBarcodeTypes;
-
-@property(nonatomic, assign) NSInteger *googleVisionBarcodeMode;
+@property(nonatomic, strong, nullable) NSArray *barCodeTypes;
+@property(nonatomic, strong, nullable) NSArray *googleVisionBarcodeTypes;
+@property(nonatomic, assign, nullable) NSInteger *googleVisionBarcodeMode;
 @property(nonatomic, assign) NSInteger presetCamera;
 @property(nonatomic, copy) NSString *cameraId; // copy required for strings/pointers
 @property(assign, nonatomic) NSInteger flashMode;
@@ -78,8 +78,8 @@
 - (void)updateFaceDetectionClassifications:(id)requestedClassifications;
 - (void)updateRectOfInterest;
 // google Barcode props
-- (void)updateGoogleVisionBarcodeType:(id)requestedTypes;
-- (void)updateGoogleVisionBarcodeMode:(id)requestedMode;
+- (void)updateGoogleVisionBarcodeType:(nullable id)requestedTypes;
+- (void)updateGoogleVisionBarcodeMode:(nullable id)requestedMode;
 
 - (void)takePicture:(NSDictionary *)options
             resolve:(RCTPromiseResolveBlock)resolve

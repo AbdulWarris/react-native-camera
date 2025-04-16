@@ -3,6 +3,75 @@
 
 NSString *const LOG_TAG = @"FaceDetectorMLKit";
 
+// Add MLKit class stubs when not available
+#if !__has_include(<GoogleMLKit/MLKFaceDetector.h>)
+@interface MLKFaceDetectorOptions : NSObject
+@property(nonatomic) int performanceMode;
+@property(nonatomic) int landmarkMode;
+@property(nonatomic) int classificationMode;
+@property(nonatomic) BOOL trackingEnabled;
+@property(nonatomic) float minFaceSize;
+@end
+
+@implementation MLKFaceDetectorOptions
+@end
+
+@interface MLKVisionPoint : NSObject
+@property(nonatomic, readonly) CGFloat x;
+@property(nonatomic, readonly) CGFloat y;
+- (instancetype)init NS_UNAVAILABLE;
+@end
+
+@implementation MLKVisionPoint
+@end
+
+@interface MLKFaceLandmark : NSObject
+@property(nonatomic, readonly) MLKVisionPoint *position;
+@end
+
+@implementation MLKFaceLandmark
+@end
+
+@interface MLKFace : NSObject
+@property(nonatomic, readonly) CGRect frame;
+@property(nonatomic, readonly) BOOL hasTrackingID;
+@property(nonatomic, readonly) NSInteger trackingID;
+@property(nonatomic, readonly) BOOL hasHeadEulerAngleY;
+@property(nonatomic, readonly) CGFloat headEulerAngleY;
+@property(nonatomic, readonly) BOOL hasHeadEulerAngleZ;
+@property(nonatomic, readonly) CGFloat headEulerAngleZ;
+@property(nonatomic, readonly) BOOL hasSmilingProbability;
+@property(nonatomic, readonly) CGFloat smilingProbability;
+@property(nonatomic, readonly) BOOL hasLeftEyeOpenProbability;
+@property(nonatomic, readonly) CGFloat leftEyeOpenProbability;
+@property(nonatomic, readonly) BOOL hasRightEyeOpenProbability;
+@property(nonatomic, readonly) CGFloat rightEyeOpenProbability;
+- (MLKFaceLandmark *)landmarkOfType:(MLKFaceLandmarkType)type;
+@end
+
+@implementation MLKFace
+- (MLKFaceLandmark *)landmarkOfType:(MLKFaceLandmarkType)type {
+    return nil;
+}
+@end
+
+@interface MLKFaceDetector : NSObject
++ (instancetype)faceDetectorWithOptions:(MLKFaceDetectorOptions *)options;
+- (void)processImage:(UIImage *)image 
+         completion:(void (^)(NSArray<MLKFace *> *faces, NSError *error))completion;
+@end
+
+@implementation MLKFaceDetector
++ (instancetype)faceDetectorWithOptions:(MLKFaceDetectorOptions *)options {
+    return [[MLKFaceDetector alloc] init];
+}
+- (void)processImage:(UIImage *)image 
+         completion:(void (^)(NSArray<MLKFace *> *faces, NSError *error))completion {
+    completion(@[], nil);
+}
+@end
+#endif
+
 #if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
 #import <GoogleMLKit/MLKFaceDetector.h>
 #import <GoogleMLKit/MLKFace.h>
@@ -26,6 +95,7 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
 {
     if (self = [super init]) {
         NSLog(@"%@: Initializing face detector", LOG_TAG);
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
         @try {
             self.options = [[MLKFaceDetectorOptions alloc] init];
             self.options.performanceMode = MLKFaceDetectorPerformanceModeFast;
@@ -41,6 +111,9 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
         } @catch (NSException *exception) {
             NSLog(@"%@: Exception during initialization: %@", LOG_TAG, exception);
         }
+#else
+        NSLog(@"%@: MLKit not available", LOG_TAG);
+#endif
     }
     return self;
 }
@@ -132,8 +205,10 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
     NSLog(@"%@: Starting face detection on image %@", LOG_TAG, uiImage);
     self.scaleX = scaleX;
     self.scaleY = scaleY;
-    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:uiImage];
     NSMutableArray *emptyResult = [[NSMutableArray alloc] init];
+    
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
+    MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:uiImage];
     [self.faceRecognizer
      processImage:visionImage
      completion:^(NSArray<MLKFace *> *faces, NSError *error) {
@@ -148,6 +223,9 @@ NSString *const LOG_TAG = @"FaceDetectorMLKit";
              completed([self processFaces:faces]);
          }
      }];
+#else
+    completed(emptyResult);
+#endif
 }
 
 - (NSArray *)processFaces:(NSArray *)faces 

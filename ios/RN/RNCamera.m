@@ -64,7 +64,7 @@ BOOL _sessionInterrupted = NO;
         self.sensorOrientationChecker = [RNSensorOrientationChecker new];
         self.textDetector = [self createTextDetector];
         self.faceDetector = [self createFaceDetectorMlKit];
-        self.barcodeDetector = [self createBarcodeDetectorMlKit];
+        self.barcodeDetector = nil; // Only initialize barcode detector if explicitly needed
         self.finishedReadingText = true;
         self.finishedDetectingFace = true;
         self.startText = [NSDate date];
@@ -1066,9 +1066,6 @@ BOOL _sessionInterrupted = NO;
         if ([self.faceDetector isRealDetector]) {
             [self stopFaceDetection];
         }
-        if ([self.barcodeDetector isRealDetector]) {
-            [self stopBarcodeDetection];
-        }
         [self setupMovieFileCapture];
     }
 
@@ -1352,10 +1349,9 @@ BOOL _sessionInterrupted = NO;
         // (see comment in -record), we go ahead and add the AVCaptureMovieFileOutput
         // to avoid an exposure rack on some devices that can cause the first few
         // frames of the recorded output to be underexposed.
-        if (![self.faceDetector isRealDetector] && ![self.textDetector isRealDetector] && ![self.barcodeDetector isRealDetector]) {
+        if (![self.faceDetector isRealDetector] && ![self.textDetector isRealDetector]) {
             [self setupMovieFileCapture];
         }
-        [self setupOrDisableBarcodeScanner];
 
         _sessionInterrupted = NO;
         [self.session startRunning];
@@ -1374,9 +1370,6 @@ BOOL _sessionInterrupted = NO;
         }
         if ([self.faceDetector isRealDetector]) {
             [self stopFaceDetection];
-        }
-        if ([self.barcodeDetector isRealDetector]) {
-            [self stopBarcodeDetection];
         }
         [self.previewLayer removeFromSuperlayer];
         [self.session commitConfiguration];
@@ -1988,10 +1981,6 @@ BOOL _sessionInterrupted = NO;
         [self setupOrDisableFaceDetector];
     }
 
-    if ([self.barcodeDetector isRealDetector]) {
-        [self setupOrDisableBarcodeDetector];
-    }
-
     // reset preset to current default
     AVCaptureSessionPreset preset = [self getDefaultPreset];
     if (self.session.sessionPreset != preset) {
@@ -2133,28 +2122,14 @@ BOOL _sessionInterrupted = NO;
 
 - (void)setupOrDisableBarcodeDetector
 {
-    if (self.canDetectBarcodes && [self.barcodeDetector isRealDetector]){
-        AVCaptureSessionPreset preset = [self getDefaultPresetVideo];
-
-        self.session.sessionPreset = preset;
-        if (!self.videoDataOutput) {
-            self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
-            if (![self.session canAddOutput:_videoDataOutput]) {
-                NSLog(@"Failed to setup video data output");
-                [self stopBarcodeDetection];
-                return;
-            }
-
-            NSDictionary *rgbOutputSettings = [NSDictionary
-                                               dictionaryWithObject:[NSNumber numberWithInt:kCMPixelFormat_32BGRA]
-                                               forKey:(id)kCVPixelBufferPixelFormatTypeKey];
-            [self.videoDataOutput setVideoSettings:rgbOutputSettings];
-            [self.videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
-            [self.videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
-            [self.session addOutput:_videoDataOutput];
-        }
-    } else {
-        [self stopBarcodeDetection];
+    // Skip barcode detection setup since it's optional
+    if (self.videoDataOutput && !self.canReadText && !self.canDetectFaces) {
+        [self.session removeOutput:self.videoDataOutput];
+    }
+    self.videoDataOutput = nil;
+    AVCaptureSessionPreset preset = [self getDefaultPreset];
+    if (self.session.sessionPreset != preset) {
+        [self updateSessionPreset: preset];
     }
 }
 
@@ -2172,14 +2147,12 @@ BOOL _sessionInterrupted = NO;
 
 - (void)updateGoogleVisionBarcodeType:(id)requestedTypes
 {
-    [self.barcodeDetector setType:requestedTypes queue:self.sessionQueue];
+    // No-op since barcode detection is optional
 }
 
 - (void)updateGoogleVisionBarcodeMode:(id)requestedMode
 {
-    if ([self.barcodeDetector isRealDetector]) {
-        [self.barcodeDetector setMode:requestedMode queue:self.sessionQueue];
-    }
+    // No-op since barcode detection is optional
 }
 
 - (void)onBarcodesDetected:(NSDictionary *)event
@@ -2234,8 +2207,8 @@ BOOL _sessionInterrupted = NO;
     didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
            fromConnection:(AVCaptureConnection *)connection
 {
-    if (![self.textDetector isRealDetector] && ![self.faceDetector isRealDetector] && ![self.barcodeDetector isRealDetector]) {
-        NSLog(@"failing real check");
+    // Only process text and face detection
+    if (![self.textDetector isRealDetector] && ![self.faceDetector isRealDetector]) {
         return;
     }
 
@@ -2248,8 +2221,8 @@ BOOL _sessionInterrupted = NO;
     NSTimeInterval timePassedSinceSubmittingForFace = [methodFinish timeIntervalSinceDate:self.startFace];
     BOOL canSubmitForTextDetection = timePassedSinceSubmittingForText > 0.5 && _finishedReadingText && self.canReadText && [self.textDetector isRealDetector];
     BOOL canSubmitForFaceDetection = timePassedSinceSubmittingForFace > 0.5 && _finishedDetectingFace && self.canDetectFaces && [self.faceDetector isRealDetector];
-    BOOL canSubmitForBarcodeDetection = self.canDetectBarcodes && [self.barcodeDetector isRealDetector];
-    if (canSubmitForFaceDetection || canSubmitForTextDetection || canSubmitForBarcodeDetection) {
+    
+    if (canSubmitForFaceDetection || canSubmitForTextDetection) {
         CGSize previewSize = CGSizeMake(_previewLayer.frame.size.width, _previewLayer.frame.size.height);
         NSInteger position = self.videoCaptureDeviceInput.device.position;
         UIImage *image = [RNCameraUtils convertBufferToUIImage:sampleBuffer previewSize:previewSize position:position];
@@ -2275,33 +2248,6 @@ BOOL _sessionInterrupted = NO;
                 NSDictionary *eventFace = @{@"type" : @"face", @"faces" : faces};
                 [self onFacesDetected:eventFace];
                 self.finishedDetectingFace = true;
-            }];
-        }
-        // find barcodes
-        if (canSubmitForBarcodeDetection) {
-            // Check for the barcode detection mode (Normal, Alternate, Inverted)
-            switch ([self.barcodeDetector fetchDetectionMode]) {
-                case RNCameraGoogleVisionBarcodeModeNormal:
-                    self.invertImageData = false;
-                    break;
-                case RNCameraGoogleVisionBarcodeModeAlternate:
-                    self.invertImageData = !self.invertImageData;
-                    break;
-                case RNCameraGoogleVisionBarcodeModeInverted:
-                    self.invertImageData = true;
-                    break;
-                default:
-                    self.invertImageData = false;
-                    break;
-            }
-
-            if (self.invertImageData) {
-                image = [RNImageUtils invertColors:image];
-            }
-
-            [self.barcodeDetector findBarcodesInFrame:image scaleX:scaleX scaleY:scaleY completed:^(NSArray * barcodes) {
-                NSDictionary *eventBarcode = @{@"type" : @"barcode", @"barcodes" : barcodes};
-                [self onBarcodesDetected:eventBarcode];
             }];
         }
     }
