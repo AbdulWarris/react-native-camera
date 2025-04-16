@@ -14,6 +14,31 @@ If you use this fork, please open issues or PRs here for support and improvement
 
 ---
 
+## ⚠️ Troubleshooting: "Module 'GoogleMLKit' not found"
+
+If you see the error:
+
+```
+Module 'GoogleMLKit' not found (in target 'react-native-camera' from project 'Pods')
+```
+
+**How to fix:**
+
+1. **Make sure you are using CocoaPods 1.10+ and Xcode 12+**
+2. **Clean your build and Pods:**
+   - Run `cd ios`
+   - Run `pod deintegrate`
+   - Run `pod install --repo-update`
+   - If you see warnings about GoogleMLKit, run `pod cache clean --all` and then `pod install` again.
+3. **Open the `.xcworkspace` file in Xcode, not `.xcodeproj`**
+4. **If you use M1/M2 Mac, run:**
+   - `sudo arch -x86_64 gem install ffi`
+   - `arch -x86_64 pod install`
+5. **Make sure your Podfile does NOT use `use_frameworks!` or `use_modular_headers!` unless required by your project.**
+6. **If you still have issues, try deleting the `Pods/`, `Podfile.lock`, and `DerivedData/` directories and reinstalling.**
+
+---
+
 ## Docs
 Follow our docs here [https://react-native-camera.github.io/react-native-camera/](https://react-native-camera.github.io/react-native-camera/)
 

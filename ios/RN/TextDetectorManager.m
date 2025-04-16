@@ -1,5 +1,7 @@
 #import "TextDetectorManager.h"
+#if __has_include(<GoogleMLKit/TextRecognition.h>)
 @import GoogleMLKit;
+#endif
 
 @interface TextDetectorManager ()
 @property(nonatomic, strong) MLKTextRecognizer *textRecognizer;
