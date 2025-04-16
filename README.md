@@ -1,6 +1,6 @@
-# React Native Camera (MLKit & Firebase Ready Fork) [![Support this project](https://opencollective.com/react-native-camera/sponsors/badge.svg)](#support) [![npm version](https://badge.fury.io/js/react-native-camera.svg)](http://badge.fury.io/js/react-native-camera) [![npm downloads](https://img.shields.io/npm/dm/react-native-camera.svg)](https://www.npmjs.com/package/react-native-camera)
+# React Native Camera MLKit & Firebase Ready Fork [![Support this project](https://opencollective.com/react-native-camera/sponsors/badge.svg)](#support) [![npm version](https://badge.fury.io/js/react-native-camera.svg)](http://badge.fury.io/js/react-native-camera) [![npm downloads](https://img.shields.io/npm/dm/react-native-camera.svg)](https://www.npmjs.com/package/react-native-camera)
 
-## 🚀 Fork Notice
+## Fork Notice
 
 This is a maintained fork of `react-native-camera` with the following updates:
 
