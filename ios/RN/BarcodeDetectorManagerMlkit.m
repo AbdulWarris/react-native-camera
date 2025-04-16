@@ -1,7 +1,16 @@
 #import "BarcodeDetectorManagerMlkit.h"
 #import <React/RCTConvert.h>
 #import "RNFileSystem.h"
-@import GoogleMLKit;
+
+#if __has_include(<GoogleMLKit/MLKBarcodeScanner.h>)
+#import <GoogleMLKit/MLKBarcodeScanner.h>
+#import <GoogleMLKit/MLKBarcode.h>
+#import <GoogleMLKit/MLKVisionImage.h>
+#else
+@class MLKBarcodeScanner;
+@class MLKBarcode;
+@class MLKVisionImage;
+#endif
 
 @interface BarcodeDetectorManagerMlkit ()
 @property(nonatomic, strong) MLKBarcodeScanner *barcodeRecognizer;

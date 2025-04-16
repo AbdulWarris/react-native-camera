@@ -1,6 +1,13 @@
 #import <UIKit/UIKit.h>
-#if __has_include(<GoogleMLKit/FaceDetection.h>)
-  @import GoogleMLKit;
+
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
+#import <GoogleMLKit/MLKFaceDetector.h>
+#import <GoogleMLKit/MLKFace.h>
+#import <GoogleMLKit/MLKVisionImage.h>
+#else
+@class MLKFaceDetector;
+@class MLKFace; 
+@class MLKVisionImage;
 #endif
 
 typedef NS_ENUM(NSInteger, RNFaceDetectionMode) {

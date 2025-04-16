@@ -1,5 +1,13 @@
-#if __has_include(<GoogleMLKit/BarcodeScanning.h>)
-  @import GoogleMLKit;
+#import <UIKit/UIKit.h>
+
+#if __has_include(<GoogleMLKit/MLKBarcodeScanner.h>)
+#import <GoogleMLKit/MLKBarcodeScanner.h>
+#import <GoogleMLKit/MLKBarcode.h>
+#import <GoogleMLKit/MLKVisionImage.h>
+#else
+@class MLKBarcodeScanner;
+@class MLKBarcode;
+@class MLKVisionImage;
 #endif
 
 @interface BarcodeDetectorManagerMlkit : NSObject

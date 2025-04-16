@@ -3,7 +3,15 @@
 
 NSString *const LOG_TAG = @"FaceDetectorMLKit";
 
-@import GoogleMLKit;
+#if __has_include(<GoogleMLKit/MLKFaceDetector.h>)
+#import <GoogleMLKit/MLKFaceDetector.h>
+#import <GoogleMLKit/MLKFace.h>
+#import <GoogleMLKit/MLKVisionImage.h>
+#else
+@class MLKFaceDetector;
+@class MLKFace;
+@class MLKVisionImage;  
+#endif
 
 @interface FaceDetectorManagerMlkit ()
 @property(nonatomic, strong) MLKFaceDetector *faceRecognizer;

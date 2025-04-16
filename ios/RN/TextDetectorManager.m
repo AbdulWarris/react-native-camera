@@ -1,6 +1,12 @@
 #import "TextDetectorManager.h"
-#if __has_include(<GoogleMLKit/TextRecognition.h>)
-@import GoogleMLKit;
+#if __has_include(<GoogleMLKit/MLKTextRecognizer.h>)
+#import <GoogleMLKit/MLKTextRecognizer.h>
+#import <GoogleMLKit/MLKText.h>
+#import <GoogleMLKit/MLKVisionImage.h>
+#else
+@class MLKTextRecognizer;
+@class MLKText;
+@class MLKVisionImage;
 #endif
 
 @interface TextDetectorManager ()
