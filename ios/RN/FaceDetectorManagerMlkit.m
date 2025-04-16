@@ -1,7 +1,9 @@
 #import "FaceDetectorManagerMlkit.h"
 #import <React/RCTConvert.h>
-#if __has_include(<MLKitFaceDetection/MLKitFaceDetection.h>)
-@import MLKitVision;
+
+NSString *const LOG_TAG = @"FaceDetectorMLKit";
+
+@import GoogleMLKit;
 
 @interface FaceDetectorManagerMlkit ()
 @property(nonatomic, strong) MLKFaceDetector *faceRecognizer;
@@ -14,15 +16,25 @@
 
 - (instancetype)init 
 {
-  if (self = [super init]) {
-    self.options = [[MLKFaceDetectorOptions alloc] init];
-    self.options.performanceMode = MLKFaceDetectorPerformanceModeFast;
-    self.options.landmarkMode = MLKFaceDetectorLandmarkModeNone;
-    self.options.classificationMode = MLKFaceDetectorClassificationModeNone;
-    
-    self.faceRecognizer = [MLKFaceDetector faceDetectorWithOptions:_options];
-  }
-  return self;
+    if (self = [super init]) {
+        NSLog(@"%@: Initializing face detector", LOG_TAG);
+        @try {
+            self.options = [[MLKFaceDetectorOptions alloc] init];
+            self.options.performanceMode = MLKFaceDetectorPerformanceModeFast;
+            self.options.landmarkMode = MLKFaceDetectorLandmarkModeAll;
+            self.options.classificationMode = MLKFaceDetectorClassificationModeAll;
+            self.options.minFaceSize = 0.15;
+            self.faceRecognizer = [MLKFaceDetector faceDetectorWithOptions:self.options];
+            if (self.faceRecognizer) {
+                NSLog(@"%@: Face detector initialized successfully", LOG_TAG);
+            } else {
+                NSLog(@"%@: Failed to initialize face detector", LOG_TAG);
+            }
+        } @catch (NSException *exception) {
+            NSLog(@"%@: Exception during initialization: %@", LOG_TAG, exception);
+        }
+    }
+    return self;
 }
 
 - (BOOL)isRealDetector 
@@ -109,16 +121,22 @@
                   scaleY:(float)scaleY
                completed:(void (^)(NSArray *result))completed 
 {
+    NSLog(@"%@: Starting face detection on image %@", LOG_TAG, uiImage);
     self.scaleX = scaleX;
     self.scaleY = scaleY;
     MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:uiImage];
     NSMutableArray *emptyResult = [[NSMutableArray alloc] init];
-    [_faceRecognizer
+    [self.faceRecognizer
      processImage:visionImage
      completion:^(NSArray<MLKFace *> *faces, NSError *error) {
-         if (error != nil || faces == nil) {
+         if (error != nil) {
+             NSLog(@"%@: Face detection error: %@", LOG_TAG, error);
+             completed(emptyResult);
+         } else if (faces == nil) {
+             NSLog(@"%@: No faces detected", LOG_TAG);
              completed(emptyResult);
          } else {
+             NSLog(@"%@: Found %lu faces", LOG_TAG, (unsigned long)faces.count);
              completed([self processFaces:faces]);
          }
      }];
@@ -130,110 +148,84 @@
     for (MLKFace *face in faces) {
         NSMutableDictionary *resultDict =
         [[NSMutableDictionary alloc] initWithCapacity:20];
-        // Boundaries of face in image
         NSDictionary *bounds = [self processBounds:face.frame];
         [resultDict setObject:bounds forKey:@"bounds"];
-        // If face tracking was enabled:
         if (face.hasTrackingID) {
             NSInteger trackingID = face.trackingID;
             [resultDict setObject:@(trackingID) forKey:@"faceID"];
         }
-        // Head is rotated to the right rotY degrees
         if (face.hasHeadEulerAngleY) {
             CGFloat rotY = face.headEulerAngleY;
             [resultDict setObject:@(rotY) forKey:@"yawAngle"];
         }
-        // Head is tilted sideways rotZ degrees
         if (face.hasHeadEulerAngleZ) {
             CGFloat rotZ = -1 * face.headEulerAngleZ;
             [resultDict setObject:@(rotZ) forKey:@"rollAngle"];
         }
-        
-        // If landmark detection was enabled (mouth, ears, eyes, cheeks, and
-        // nose available):
-        /** Midpoint of the left ear tip and left ear lobe. */
-        MLKFaceLandmark *leftEar =
-        [face landmarkOfType:MLKFaceLandmarkTypeLeftEar];
+        MLKFaceLandmark *leftEar = [face landmarkOfType:MLKFaceLandmarkTypeLeftEar];
         if (leftEar != nil) {
             [resultDict setObject:[self processPoint:leftEar.position]
                            forKey:@"leftEarPosition"];
         }
-        /** Midpoint of the right ear tip and right ear lobe. */
-        MLKFaceLandmark *rightEar =
-        [face landmarkOfType:MLKFaceLandmarkTypeRightEar];
+        MLKFaceLandmark *rightEar = [face landmarkOfType:MLKFaceLandmarkTypeRightEar];
         if (rightEar != nil) {
             [resultDict setObject:[self processPoint:rightEar.position]
                            forKey:@"rightEarPosition"];
         }
-        /** Center of the bottom lip. */
-        MLKFaceLandmark *mouthBottom =
-        [face landmarkOfType:MLKFaceLandmarkTypeMouthBottom];
+        MLKFaceLandmark *mouthBottom = [face landmarkOfType:MLKFaceLandmarkTypeMouthBottom];
         if (mouthBottom != nil) {
             [resultDict setObject:[self processPoint:mouthBottom.position]
                            forKey:@"bottomMouthPosition"];
         }
-        /** Right corner of the mouth */
-        MLKFaceLandmark *mouthRight =
-        [face landmarkOfType:MLKFaceLandmarkTypeMouthRight];
+        MLKFaceLandmark *mouthRight = [face landmarkOfType:MLKFaceLandmarkTypeMouthRight];
         if (mouthRight != nil) {
             [resultDict setObject:[self processPoint:mouthRight.position]
                            forKey:@"rightMouthPosition"];
         }
-        /** Left corner of the mouth */
-        MLKFaceLandmark *mouthLeft =
-        [face landmarkOfType:MLKFaceLandmarkTypeMouthLeft];
+        MLKFaceLandmark *mouthLeft = [face landmarkOfType:MLKFaceLandmarkTypeMouthLeft];
         if (mouthLeft != nil) {
             [resultDict setObject:[self processPoint:mouthLeft.position]
                            forKey:@"leftMouthPosition"];
         }
-        /** Left eye. */
-        MLKFaceLandmark *eyeLeft =
-        [face landmarkOfType:MLKFaceLandmarkTypeLeftEye];
+        MLKFaceLandmark *eyeLeft = [face landmarkOfType:MLKFaceLandmarkTypeLeftEye];
         if (eyeLeft != nil) {
             [resultDict setObject:[self processPoint:eyeLeft.position]
                            forKey:@"leftEyePosition"];
         }
-        /** Right eye. */
-        MLKFaceLandmark *eyeRight =
-        [face landmarkOfType:MLKFaceLandmarkTypeRightEye];
+        MLKFaceLandmark *eyeRight = [face landmarkOfType:MLKFaceLandmarkTypeRightEye];
         if (eyeRight != nil) {
             [resultDict setObject:[self processPoint:eyeRight.position]
                            forKey:@"rightEyePosition"];
         }
-        /** Left cheek. */
-        MLKFaceLandmark *cheekLeft =
-        [face landmarkOfType:MLKFaceLandmarkTypeLeftCheek];
+        MLKFaceLandmark *cheekLeft = [face landmarkOfType:MLKFaceLandmarkTypeLeftCheek];
         if (cheekLeft != nil) {
             [resultDict setObject:[self processPoint:cheekLeft.position]
                            forKey:@"leftCheekPosition"];
         }
-        /** Right cheek. */
-        MLKFaceLandmark *cheekRight =
-        [face landmarkOfType:MLKFaceLandmarkTypeRightCheek];
+        MLKFaceLandmark *cheekRight = [face landmarkOfType:MLKFaceLandmarkTypeRightCheek];
         if (cheekRight != nil) {
             [resultDict setObject:[self processPoint:cheekRight.position]
                            forKey:@"rightCheekPosition"];
         }
-        /** Midpoint between the nostrils where the nose meets the face. */
-        MLKFaceLandmark *noseBase =
-        [face landmarkOfType:MLKFaceLandmarkTypeNoseBase];
+        MLKFaceLandmark *noseBase = [face landmarkOfType:MLKFaceLandmarkTypeNoseBase];
         if (noseBase != nil) {
             [resultDict setObject:[self processPoint:noseBase.position]
                            forKey:@"noseBasePosition"];
         }
-        
-        // If classification was enabled:
         if (face.hasSmilingProbability) {
             CGFloat smileProb = face.smilingProbability;
+            NSLog(@"%@: smileProb: %f", LOG_TAG, smileProb);
             [resultDict setObject:@(smileProb) forKey:@"smilingProbability"];
         }
         if (face.hasRightEyeOpenProbability) {
             CGFloat rightEyeOpenProb = face.rightEyeOpenProbability;
+            NSLog(@"%@: rightEyeOpenProb: %f", LOG_TAG, rightEyeOpenProb);
             [resultDict setObject:@(rightEyeOpenProb)
                            forKey:@"rightEyeOpenProbability"];
         }
         if (face.hasLeftEyeOpenProbability) {
             CGFloat leftEyeOpenProb = face.leftEyeOpenProbability;
+            NSLog(@"%@: leftEyeOpenProb: %f", LOG_TAG, leftEyeOpenProb);
             [resultDict setObject:@(leftEyeOpenProb)
                            forKey:@"leftEyeOpenProbability"];
         }
@@ -260,7 +252,6 @@
     float originX = point.x * _scaleX;
     float originY = point.y * _scaleY;
     NSDictionary *pointDict = @{
-                                
                                 @"x" : @(originX),
                                 @"y" : @(originY)
                                 };
@@ -268,59 +259,3 @@
 }
 
 @end
-#else
-
-@interface FaceDetectorManagerMlkit ()
-@end
-
-@implementation FaceDetectorManagerMlkit
-
-- (instancetype)init {
-    self = [super init];
-    return self;
-}
-
-- (BOOL)isRealDetector {
-    return false;
-}
-
-- (NSArray *)findFacesInFrame:(UIImage *)image
-                       scaleX:(float)scaleX
-                       scaleY:(float)scaleY
-                       completed:(void (^)(NSArray *result))completed;
-{
-    NSLog(@"FaceDetector not installed, stub used!");
-    NSArray *features = @[ @"Error, Face Detector not installed" ];
-    return features;
-}
-
-- (void)setTracking:(id)json:(dispatch_queue_t)sessionQueue 
-{
-    return;
-}
-- (void)setLandmarksMode:(id)json:(dispatch_queue_t)sessionQueue 
-{
-    return;
-}
-
-- (void)setPerformanceMode:(id)json:(dispatch_queue_t)sessionQueue 
-{
-    return;
-}
-
-- (void)setClassificationMode:(id)json:(dispatch_queue_t)sessionQueue 
-{
-    return;
-}
-
-+ (NSDictionary *)constantsToExport
-{
-    return @{
-             @"Mode" : @{},
-             @"Landmarks" : @{},
-             @"Classifications" : @{}
-             };
-}
-
-@end
-#endif

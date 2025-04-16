@@ -1,8 +1,7 @@
 #import "BarcodeDetectorManagerMlkit.h"
 #import <React/RCTConvert.h>
 #import "RNFileSystem.h"
-#if __has_include(<MLKitBarcodeScanning/MLKitBarcodeScanning.h>)
-@import MLKitVision;
+@import GoogleMLKit;
 
 @interface BarcodeDetectorManagerMlkit ()
 @property(nonatomic, strong) MLKBarcodeScanner *barcodeRecognizer;
@@ -399,56 +398,4 @@
 }
 
 @end
-#else
-
-@interface BarcodeDetectorManagerMlkit ()
-@end
-
-@implementation BarcodeDetectorManagerMlkit
-
-- (instancetype)init {
-    self = [super init];
-    return self;
-}
-
-- (BOOL)isRealDetector {
-    return false;
-}
-
-- (void)findBarcodesInFrame:(UIImage *)image
-                       scaleX:(float)scaleX
-                       scaleY:(float)scaleY
-                       completed:(void (^)(NSArray *result))completed;
-{
-    NSLog(@"BarcodeDetector not installed, stub used!");
-    NSArray *barcodes = @[ @"Error, Barcode Detector not installed" ];
-    completed(barcodes);
-}
-
-+ (NSDictionary *)constants
-{
-    return @{
-             @"CODE_128" : @{},
-             @"CODE_39" : @{},
-             @"CODE_93" : @{},
-             @"CODABAR" : @{},
-             @"EAN_13" : @{},
-             @"EAN_8" : @{},
-             @"ITF" : @{},
-             @"UPC_A" : @{},
-             @"UPC_E" : @{},
-             @"QR_CODE" : @{},
-             @"PDF417" : @{},
-             @"AZTEC" : @{},
-             @"DATA_MATRIX" : @{},
-             };
-}
-
-- (void)setType:(id)json queue:(dispatch_queue_t)sessionQueue
-{
-    return;
-}
-
-@end
-#endif
 

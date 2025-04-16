@@ -1,5 +1,5 @@
 #import "RNFaceDetectorModuleMLKit.h"
-#if __has_include(<MLKitFaceDetection/MLKitFaceDetection.h>)
+#if __has_include(<GoogleMLKit/FaceDetection.h>)
 #import "RNFileSystem.h"
 #import "RNImageUtils.h"
 

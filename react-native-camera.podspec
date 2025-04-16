@@ -1,3 +1,4 @@
+ENV['RCT_NEW_ARCH_ENABLED'] = "0"
 require 'json'
 
 package = JSON.parse(File.read(File.join(__dir__, 'package.json')))
@@ -13,7 +14,7 @@ Pod::Spec.new do |s|
   s.source         = { :git => 'https://github.com/react-native-community/react-native-camera', :tag => "v#{s.version}" }
 
   s.requires_arc   = true
-  s.platform       = :ios, '9.0'
+  s.platform       = :ios, min_ios_version_supported
 
   s.subspec "RCT" do |ss|
     ss.source_files = "ios/RCT/**/*.{h,m}"
