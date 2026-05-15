@@ -64,30 +64,38 @@ public class BarcodeDetectorAsyncTask {
     sExecutor.submit(new Runnable() {
       @Override
       public void run() {
-        if (mDelegate == null || mBarcodeDetector == null || !mBarcodeDetector.isOperational()) {
-          Log.w(TAG, "BarcodeDetectorAsyncTask: detector not operational or delegate null");
-          mDelegate.onBarcodeDetectionError(mBarcodeDetector);
+        final BarcodeDetectorAsyncTaskDelegate delegate = mDelegate;
+        final RNBarcodeDetector barcodeDetector = mBarcodeDetector;
+
+        if (delegate == null) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: delegate null");
+          return;
+        }
+
+        if (barcodeDetector == null || !barcodeDetector.isOperational()) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: detector not operational");
+          delegate.onBarcodeDetectionError(barcodeDetector);
           return;
         }
 
         RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
         List<Barcode> barcodes;
         try {
-          barcodes = mBarcodeDetector.detect(frame);
+          barcodes = barcodeDetector.detect(frame);
         } catch (Exception e) {
           Log.e(TAG, "BarcodeDetectorAsyncTask: detect() failed", e);
-          mDelegate.onBarcodeDetectionError(mBarcodeDetector);
+          delegate.onBarcodeDetectionError(barcodeDetector);
           return;
         }
 
         if (barcodes == null) {
           Log.w(TAG, "BarcodeDetectorAsyncTask: null result from detect()");
-          mDelegate.onBarcodeDetectionError(mBarcodeDetector);
+          delegate.onBarcodeDetectionError(barcodeDetector);
         } else {
           if (barcodes.size() > 0) {
-            mDelegate.onBarcodesDetected(serializeEventData(barcodes), mWidth, mHeight, mImageData);
+            delegate.onBarcodesDetected(serializeEventData(barcodes), mWidth, mHeight, mImageData);
           }
-          mDelegate.onBarcodeDetectingTaskCompleted();
+          delegate.onBarcodeDetectingTaskCompleted();
         }
       }
     });
