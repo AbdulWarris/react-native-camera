@@ -243,7 +243,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                         cameraView.pausePreview();
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.w(TAG, "Unexpected exception", e);
                 }
             }
         });
@@ -262,7 +262,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                         cameraView.resumePreview();
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.w(TAG, "Unexpected exception", e);
                 }
             }
         });
@@ -283,6 +283,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
               }
           }
           catch (Exception e) {
+            Log.e(TAG, "takePicture failed", e);
             promise.reject("E_TAKE_PICTURE_FAILED", e.getMessage());
           }
       }
@@ -305,6 +306,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                       promise.reject("E_CAMERA_UNAVAILABLE", "Camera is not running");
                   }
               } catch (Exception e) {
+                  Log.e(TAG, "record failed", e);
                   promise.reject("E_CAPTURE_FAILED", e.getMessage());
               }
           }
@@ -324,7 +326,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                       cameraView.stopRecording();
                   }
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
               }
           }
       });
@@ -343,7 +345,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   cameraView.pauseRecording();
               }
           } catch (Exception e) {
-              e.printStackTrace();
+              Log.w(TAG, "Unexpected exception", e);
           }
       }
     });
@@ -362,7 +364,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   cameraView.resumeRecording();
               }
           } catch (Exception e) {
-              e.printStackTrace();
+              Log.w(TAG, "Unexpected exception", e);
           }
       }
     });
@@ -387,7 +389,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                       promise.reject("E_CAMERA_UNAVAILABLE", "Camera is not running");
                   }
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
               }
           }
       });
@@ -411,7 +413,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   }
                   promise.resolve(result);
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
                   promise.reject("E_CAMERA_FAILED", e.getMessage());
               }
           }
@@ -457,7 +459,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
               }
           }
       } catch (Exception e) {
-          e.printStackTrace();
+          Log.w(TAG, "Unexpected exception", e);
       }
       promise.resolve(false);
   }
@@ -481,7 +483,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   }
                   promise.resolve(result);
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
               }
           }
       });
@@ -505,7 +507,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
           try {
               retriever.setDataSource(path);
           } catch (Exception e) {
-              e.printStackTrace();
+              Log.w(TAG, "checkIfVideoIsValid: failed to load video source: " + path, e);
               // if we failed to load the source, also return true
               // as this may cause false positives.
               promise.resolve(true);
@@ -524,8 +526,9 @@ public class CameraModule extends ReactContextBaseJavaModule {
           // this may fail or may not be available in API < 29
           try {
             retriever.release();
-          } catch (Throwable e) {}
-        }
+          } catch (Throwable e) {
+            Log.w(TAG, "Failed to release MediaMetadataRetriever", e);
+          }        }
       }
     });
   }
