@@ -10,6 +10,7 @@ import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
+import com.facebook.react.uimanager.events.RCTModernEventEmitter;
 import com.google.zxing.Result;
 import com.google.zxing.ResultPoint;
 
@@ -64,6 +65,11 @@ public class BarCodeReadEvent extends Event<BarCodeReadEvent> {
   @Override
   public void dispatch(RCTEventEmitter rctEventEmitter) {
     rctEventEmitter.receiveEvent(getViewTag(), getEventName(), serializeEventData());
+  }
+
+  @Override
+  public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
   }
 
   private WritableMap serializeEventData() {

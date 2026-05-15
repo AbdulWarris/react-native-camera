@@ -5,6 +5,7 @@ import androidx.core.util.Pools;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
+import com.facebook.react.uimanager.events.RCTModernEventEmitter;
 
 import org.reactnative.camera.CameraViewManager;
 
@@ -43,4 +44,9 @@ public class PictureSavedEvent extends Event<PictureSavedEvent> {
     public void dispatch(RCTEventEmitter rctEventEmitter) {
         rctEventEmitter.receiveEvent(getViewTag(), getEventName(), mResponse);
     }
+
+  @Override
+  public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
+  }
 }
