@@ -1,5 +1,6 @@
 package org.reactnative.camera.tasks;
 
+import android.util.Log;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
@@ -13,8 +14,14 @@ import org.reactnative.frame.RNFrameFactory;
 import org.reactnative.facedetector.RNFaceDetector;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, List<Face>> {
+public class FaceDetectorAsyncTask {
+  private static final String TAG = "RNCamera";
+  // Use a bounded pool to limit threads during sustained preview-frame analysis.
+  private static final ExecutorService sExecutor = Executors.newFixedThreadPool(2);
+
   private byte[] mImageData;
   private int mWidth;
   private int mHeight;
@@ -54,34 +61,47 @@ public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, List
     mPaddingTop = viewPaddingTop;
   }
 
-  @Override
-  protected List<Face> doInBackground(Void... ignored) {
-    if (isCancelled() || mDelegate == null || mFaceDetector == null || !mFaceDetector.isOperational()) {
-      return null;
-    }
+  public void execute() {
+    sExecutor.submit(new Runnable() {
+      @Override
+      public void run() {
+        if (mDelegate == null) {
+          Log.w(TAG, "FaceDetectorAsyncTask: delegate null, skipping");
+          return;
+        }
+        if (mFaceDetector == null || !mFaceDetector.isOperational()) {
+          Log.w(TAG, "FaceDetectorAsyncTask: detector not operational");
+          mDelegate.onFaceDetectionError(mFaceDetector);
+          return;
+        }
 
-    RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
-    return mFaceDetector.detect(frame);
-  }
+        RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
+        List<Face> faces;
+        try {
+          faces = mFaceDetector.detect(frame);
+        } catch (Exception e) {
+          Log.e(TAG, "FaceDetectorAsyncTask: detect() failed", e);
+          mDelegate.onFaceDetectionError(mFaceDetector);
+          return;
+        }
 
-  @Override
-  protected void onPostExecute(List<Face> faces) {
-    super.onPostExecute(faces);
-
-    if (faces == null) {
-      mDelegate.onFaceDetectionError(mFaceDetector);
-    } else {
-      if (faces.size() > 0) {
-        mDelegate.onFacesDetected(serializeEventData(faces));
+        if (faces == null) {
+          Log.w(TAG, "FaceDetectorAsyncTask: null result from detect()");
+          mDelegate.onFaceDetectionError(mFaceDetector);
+        } else {
+          if (faces.size() > 0) {
+            mDelegate.onFacesDetected(serializeEventData(faces));
+          }
+          mDelegate.onFaceDetectingTaskCompleted();
+        }
       }
-      mDelegate.onFaceDetectingTaskCompleted();
-    }
+    });
   }
 
   private WritableArray serializeEventData(List<Face> faces) {
     WritableArray facesList = Arguments.createArray();
 
-    for(int i = 0; i < faces.size(); i++) {
+    for (int i = 0; i < faces.size(); i++) {
       Face face = faces.get(i);
       WritableMap serializedFace = FaceDetectorUtils.serializeFace(face, mScaleX, mScaleY, mWidth, mHeight, mPaddingLeft, mPaddingTop);
       if (mImageDimensions.getFacing() == CameraView.FACING_FRONT) {

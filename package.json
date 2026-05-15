@@ -1,7 +1,7 @@
 {
   "name": "react-native-camera",
   "description": "A Camera component for React Native. Also reads barcodes.",
-  "version": "4.2.1",
+  "version": "5.0.0",
   "author": "Lochlan Wansbrough <lochie@live.com> (http://lwansbrough.com)",
   "collective": {
     "type": "opencollective",
@@ -11,7 +11,16 @@
   "dependencies": {
     "prop-types": "^15.6.2"
   },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-native": ">=0.70 <0.82"
+  },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/plugin-transform-class-properties": "^7.28.6",
+    "@babel/plugin-transform-flow-strip-types": "^7.27.1",
+    "@babel/preset-env": "^7.29.5",
+    "@babel/preset-react": "^7.28.5",
     "@babel/runtime": "^7.3.1",
     "@commitlint/cli": "^9.1.2",
     "@commitlint/config-conventional": "^9.1.2",
@@ -24,6 +33,7 @@
     "@types/react": "^16.8.3",
     "@types/react-native": "^0.63.13",
     "babel-eslint": "^10.1.0",
+    "babel-jest": "^30.4.1",
     "commitizen": "^4.2.1",
     "eslint": "^7.8.0",
     "eslint-plugin-flowtype": "^5.2.0",
@@ -31,6 +41,7 @@
     "eslint-plugin-react": "^7.10.0",
     "eslint-plugin-react-native": "^3.2.1",
     "husky": "^4.2.5",
+    "jest": "^30.4.2",
     "lint-staged": "^10.2.13",
     "pre-commit": "^1.2.2",
     "prettier": "^2.1.1",
@@ -77,6 +88,7 @@
     "lint": "eslint src --max-warnings=0",
     "lint:staged": "lint-staged",
     "prettier": "prettier --write",
+    "test": "jest",
     "ci:publish": "semantic-release"
   },
   "types": "types/index.d.ts",
@@ -101,6 +113,18 @@
           "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
         }
       ]
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/__tests__/**/*.test.js"
+    ],
+    "transform": {
+      "^.+\\.js$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/"
     ]
   },
   "config": {

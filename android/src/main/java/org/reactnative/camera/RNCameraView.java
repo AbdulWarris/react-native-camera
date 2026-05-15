@@ -11,14 +11,8 @@ import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.media.CamcorderProfile;
 import android.os.Build;
+import android.util.Log;
 import androidx.core.content.ContextCompat;
-
-import android.util.DisplayMetrics;
-import android.view.GestureDetector;
-import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
-import android.view.View;
-import android.os.AsyncTask;
 import com.facebook.react.bridge.*;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.google.android.cameraview.CameraView;
@@ -40,6 +34,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate,
     BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate, PictureSavedDelegate {
+  private static final String TAG = "RNCamera";
   private ThemedReactContext mThemedReactContext;
   private Queue<Promise> mPictureTakenPromises = new ConcurrentLinkedQueue<>();
   private Map<Promise, ReadableMap> mPictureTakenOptions = new ConcurrentHashMap<>();
@@ -116,13 +111,10 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
             promise.resolve(null);
         }
         final File cacheDirectory = mPictureTakenDirectories.remove(promise);
-        if(Build.VERSION.SDK_INT >= 11/*HONEYCOMB*/) {
-          new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, deviceOrientation, softwareRotation, RNCameraView.this)
-                  .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
-          new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, deviceOrientation, softwareRotation, RNCameraView.this)
-                  .execute();
-        }
+        // ResolveTakenPictureAsyncTask uses its own internal bounded executor pool
+        // to process images in parallel (analogous to the previous AsyncTask.THREAD_POOL_EXECUTOR).
+        new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, deviceOrientation, softwareRotation, RNCameraView.this)
+                .execute();
         RNCameraViewHelper.emitPictureTakenEvent(cameraView);
       }
 
@@ -281,7 +273,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
           mPictureTakenPromises.remove(promise);
           mPictureTakenOptions.remove(promise);
           mPictureTakenDirectories.remove(promise);
-
+          Log.e(TAG, "takePicture failed", e);
           promise.reject("E_TAKE_PICTURE_FAILED", e.getMessage());
         }
       }
@@ -328,6 +320,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
             promise.reject("E_RECORDING_FAILED", "Starting video recording failed. Another recording might be in progress.");
           }
         } catch (IOException e) {
+          Log.e(TAG, "Starting video recording failed - could not create video file", e);
           promise.reject("E_RECORDING_FAILED", "Starting video recording failed - could not create video file.");
         }
       }
@@ -380,6 +373,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, imageStream);
         compressedImage = imageStream.toByteArray();
       } catch (Exception e) {
+        Log.e(TAG, String.format("Error decoding barcode imageData from NV21 format (%d bytes)", imageData.length), e);
         throw new RuntimeException(String.format("Error decoding imageData from NV21 format (%d bytes)", imageData.length), e);
       }
     } else {
@@ -549,6 +543,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, imageStream);
         compressedImage = imageStream.toByteArray();
       } catch (Exception e) {
+        Log.e(TAG, String.format("Error decoding barcode imageData from NV21 format (%d bytes)", imageData.length), e);
         throw new RuntimeException(String.format("Error decoding imageData from NV21 format (%d bytes)", imageData.length), e);
       }
     } else {

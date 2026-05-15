@@ -1,6 +1,7 @@
 package org.reactnative.camera.tasks;
 
 import android.graphics.Rect;
+import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
@@ -14,8 +15,12 @@ import org.reactnative.frame.RNFrameFactory;
 import org.reactnative.barcodedetector.RNBarcodeDetector;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, List<Barcode>> {
+public class BarcodeDetectorAsyncTask {
+  private static final String TAG = "RNCamera";
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
 
   private byte[] mImageData;
   private int mWidth;
@@ -55,44 +60,58 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, L
     mPaddingTop = viewPaddingTop;
   }
 
-  @Override
-  protected List<Barcode> doInBackground(Void... ignored) {
-    if (isCancelled() || mDelegate == null || mBarcodeDetector == null || !mBarcodeDetector.isOperational()) {
-      return null;
-    }
+  public void execute() {
+    sExecutor.submit(new Runnable() {
+      @Override
+      public void run() {
+        final BarcodeDetectorAsyncTaskDelegate delegate = mDelegate;
+        final RNBarcodeDetector barcodeDetector = mBarcodeDetector;
 
-    RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
-    return mBarcodeDetector.detect(frame);
-  }
+        if (delegate == null) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: delegate null");
+          return;
+        }
 
-  @Override
-  protected void onPostExecute(List<Barcode> barcodes) {
-    super.onPostExecute(barcodes);
+        if (barcodeDetector == null || !barcodeDetector.isOperational()) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: detector not operational");
+          delegate.onBarcodeDetectionError(barcodeDetector);
+          return;
+        }
 
-    if (barcodes == null) {
-      mDelegate.onBarcodeDetectionError(mBarcodeDetector);
-    } else {
-      if (barcodes.size() > 0) {
-        mDelegate.onBarcodesDetected(serializeEventData(barcodes), mWidth, mHeight, mImageData);
+        RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
+        List<Barcode> barcodes;
+        try {
+          barcodes = barcodeDetector.detect(frame);
+        } catch (Exception e) {
+          Log.e(TAG, "BarcodeDetectorAsyncTask: detect() failed", e);
+          delegate.onBarcodeDetectionError(barcodeDetector);
+          return;
+        }
+
+        if (barcodes == null) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: null result from detect()");
+          delegate.onBarcodeDetectionError(barcodeDetector);
+        } else {
+          if (barcodes.size() > 0) {
+            delegate.onBarcodesDetected(serializeEventData(barcodes), mWidth, mHeight, mImageData);
+          }
+          delegate.onBarcodeDetectingTaskCompleted();
+        }
       }
-      mDelegate.onBarcodeDetectingTaskCompleted();
-    }
+    });
   }
 
   private WritableArray serializeEventData(List<Barcode> barcodes) {
     WritableArray barcodesList = Arguments.createArray();
-
     for (int i = 0; i < barcodes.size(); i++) {
       Barcode barcode = barcodes.get(i);
       WritableMap serializedBarcode = Arguments.createMap();
-
       serializedBarcode.putString("data", barcode.getDisplayValue());
       serializedBarcode.putString("rawData", barcode.getRawValue());
       serializedBarcode.putString("type", BarcodeFormatUtils.get(barcode.getFormat()));
       serializedBarcode.putMap("bounds", processBounds(barcode.getBoundingBox()));
       barcodesList.pushMap(serializedBarcode);
     }
-
     return barcodesList;
   }
 
@@ -100,26 +119,21 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, L
     WritableMap origin = Arguments.createMap();
     int x = frame.left;
     int y = frame.top;
-
     if (frame.left < mWidth / 2) {
       x = x + mPaddingLeft / 2;
-    } else if (frame.left > mWidth /2) {
+    } else if (frame.left > mWidth / 2) {
       x = x - mPaddingLeft / 2;
     }
-
     if (frame.top < mHeight / 2) {
       y = y + mPaddingTop / 2;
     } else if (frame.top > mHeight / 2) {
       y = y - mPaddingTop / 2;
     }
-
     origin.putDouble("x", x * mScaleX);
     origin.putDouble("y", y * mScaleY);
-
     WritableMap size = Arguments.createMap();
     size.putDouble("width", frame.width() * mScaleX);
     size.putDouble("height", frame.height() * mScaleY);
-
     WritableMap bounds = Arguments.createMap();
     bounds.putMap("origin", origin);
     bounds.putMap("size", size);

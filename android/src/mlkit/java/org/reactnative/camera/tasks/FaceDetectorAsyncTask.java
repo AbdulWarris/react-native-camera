@@ -17,8 +17,13 @@ import org.reactnative.facedetector.FaceDetectorUtils;
 import org.reactnative.facedetector.RNFaceDetector;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void> {
+public class FaceDetectorAsyncTask {
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+  private static final String TAG = "RNCamera";
+
   private byte[] mImageData;
   private int mWidth;
   private int mHeight;
@@ -30,7 +35,6 @@ public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void
   private ImageDimensions mImageDimensions;
   private int mPaddingLeft;
   private int mPaddingTop;
-  private String TAG = "RNCamera";
 
   public FaceDetectorAsyncTask(
       FaceDetectorAsyncTaskDelegate delegate,
@@ -59,61 +63,50 @@ public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void
     mPaddingTop = viewPaddingTop;
   }
 
-  @Override
-  protected Void doInBackground(Void... ignored) {
-    if (isCancelled() || mDelegate == null || mFaceDetector == null) {
-      return null;
-    }
-    InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_YV12);
-
-    FaceDetector detector = mFaceDetector.getDetector();
-    detector.process(image)
-            .addOnSuccessListener(
-                    new OnSuccessListener<List<Face>>() {
-                      @Override
-                      public void onSuccess(List<Face> faces) {
-                        WritableArray facesList = serializeEventData(faces);
-                        mDelegate.onFacesDetected(facesList);
-                        mDelegate.onFaceDetectingTaskCompleted();
-                      }
-                    })
-            .addOnFailureListener(
-                    new OnFailureListener() {
-                      @Override
-                      public void onFailure(Exception e) {
-                        Log.e(TAG, "Text recognition task failed" + e);
-                        mDelegate.onFaceDetectingTaskCompleted();
-                      }
-                    });
-    return null;
+  public void execute() {
+    sExecutor.submit(new Runnable() {
+      @Override
+      public void run() {
+        if (mDelegate == null || mFaceDetector == null) {
+          return;
+        }
+        InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_YV12);
+        FaceDetector detector = mFaceDetector.getDetector();
+        detector.process(image)
+            .addOnSuccessListener(new OnSuccessListener<List<Face>>() {
+              @Override
+              public void onSuccess(List<Face> faces) {
+                WritableArray facesList = serializeEventData(faces);
+                mDelegate.onFacesDetected(facesList);
+                mDelegate.onFaceDetectingTaskCompleted();
+              }
+            })
+            .addOnFailureListener(new OnFailureListener() {
+              @Override
+              public void onFailure(Exception e) {
+                Log.e(TAG, "Face detection task failed", e);
+                mDelegate.onFaceDetectingTaskCompleted();
+              }
+            });
+      }
+    });
   }
 
-  private int getFirebaseRotation(){
-    int result;
+  private int getFirebaseRotation() {
     switch (mRotation) {
-      case 0:
-        result = 0;
-        break;
-      case 90:
-        result = 90;
-        break;
-      case 180:
-        result = 180;
-        break;
+      case 0: return 0;
+      case 90: return 90;
+      case 180: return 180;
       case 270:
-      case -90:
-        result = 270;
-        break;
+      case -90: return 270;
       default:
-        result = 0;
         Log.e(TAG, "Bad rotation value: " + mRotation);
+        return 0;
     }
-    return result;
   }
 
   private WritableArray serializeEventData(List<Face> faces) {
     WritableArray facesList = Arguments.createArray();
-
     for (Face face : faces) {
       WritableMap serializedFace = FaceDetectorUtils.serializeFace(face, mScaleX, mScaleY, mWidth, mHeight, mPaddingLeft, mPaddingTop);
       if (mImageDimensions.getFacing() == CameraView.FACING_FRONT) {
@@ -123,8 +116,6 @@ public class FaceDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void
       }
       facesList.pushMap(serializedFace);
     }
-
     return facesList;
   }
-
 }

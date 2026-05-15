@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.media.MediaMetadataRetriever;
-import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -30,6 +29,8 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 public class CameraModule extends ReactContextBaseJavaModule {
@@ -72,6 +73,30 @@ public class CameraModule extends ReactContextBaseJavaModule {
   public CameraModule(ReactApplicationContext reactContext) {
     super(reactContext);
     mScopedContext = new ScopedContext(reactContext);
+  }
+
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+
+  /**
+   * Null-safe helper to run a UIBlock on the old architecture's native view hierarchy.
+   * On the new architecture UIManagerModule may be absent; the block is silently skipped.
+   */
+  private void addUIBlock(final int viewTag, final UIBlock block) {
+    addUIBlock(viewTag, block, null);
+  }
+
+  /**
+   * Null-safe helper with Promise rejection when UIManagerModule is absent.
+   * Promise-bearing methods should call this overload so the JS caller is not left hanging.
+   */
+  private void addUIBlock(final int viewTag, final UIBlock block, @Nullable final Promise promise) {
+    final ReactApplicationContext context = getReactApplicationContext();
+    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
+    if (uiManager != null) {
+      uiManager.addUIBlock(block);
+    } else if (promise != null) {
+      promise.reject("E_NO_UI_MANAGER", "UIManagerModule is not available (New Architecture requires Fabric-compatible APIs).");
+    }
   }
 
   public ScopedContext getScopedContext() {
@@ -217,9 +242,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void pausePreview(final int viewTag) {
-        final ReactApplicationContext context = getReactApplicationContext();
-        UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-        uiManager.addUIBlock(new UIBlock() {
+        addUIBlock(viewTag, new UIBlock() {
             @Override
             public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
                 final RNCameraView cameraView;
@@ -230,7 +253,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                         cameraView.pausePreview();
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.w(TAG, "Unexpected exception", e);
                 }
             }
         });
@@ -238,9 +261,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void resumePreview(final int viewTag) {
-        final ReactApplicationContext context = getReactApplicationContext();
-        UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-        uiManager.addUIBlock(new UIBlock() {
+        addUIBlock(viewTag, new UIBlock() {
             @Override
             public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
                 final RNCameraView cameraView;
@@ -251,7 +272,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                         cameraView.resumePreview();
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.w(TAG, "Unexpected exception", e);
                 }
             }
         });
@@ -259,10 +280,8 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void takePicture(final ReadableMap options, final int viewTag, final Promise promise) {
-    final ReactApplicationContext context = getReactApplicationContext();
     final File cacheDirectory = mScopedContext.getCacheDirectory();
-    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-    uiManager.addUIBlock(new UIBlock() {
+    addUIBlock(viewTag, new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
           RNCameraView cameraView = (RNCameraView) nativeViewHierarchyManager.resolveView(viewTag);
@@ -274,19 +293,17 @@ public class CameraModule extends ReactContextBaseJavaModule {
               }
           }
           catch (Exception e) {
+            Log.e(TAG, "takePicture failed", e);
             promise.reject("E_TAKE_PICTURE_FAILED", e.getMessage());
           }
       }
-    });
+    }, promise);
   }
 
   @ReactMethod
   public void record(final ReadableMap options, final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
       final File cacheDirectory = mScopedContext.getCacheDirectory();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -299,17 +316,16 @@ public class CameraModule extends ReactContextBaseJavaModule {
                       promise.reject("E_CAMERA_UNAVAILABLE", "Camera is not running");
                   }
               } catch (Exception e) {
+                  Log.e(TAG, "record failed", e);
                   promise.reject("E_CAPTURE_FAILED", e.getMessage());
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
   public void stopRecording(final int viewTag) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -320,7 +336,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                       cameraView.stopRecording();
                   }
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
               }
           }
       });
@@ -328,9 +344,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void pauseRecording(final int viewTag) {
-    final ReactApplicationContext context = getReactApplicationContext();
-    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-    uiManager.addUIBlock(new UIBlock() {
+    addUIBlock(viewTag, new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
           final RNCameraView cameraView;
@@ -341,7 +355,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   cameraView.pauseRecording();
               }
           } catch (Exception e) {
-              e.printStackTrace();
+              Log.w(TAG, "Unexpected exception", e);
           }
       }
     });
@@ -349,9 +363,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void resumeRecording(final int viewTag) {
-    final ReactApplicationContext context = getReactApplicationContext();
-    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-    uiManager.addUIBlock(new UIBlock() {
+    addUIBlock(viewTag, new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
           final RNCameraView cameraView;
@@ -362,7 +374,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   cameraView.resumeRecording();
               }
           } catch (Exception e) {
-              e.printStackTrace();
+              Log.w(TAG, "Unexpected exception", e);
           }
       }
     });
@@ -370,9 +382,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void getSupportedRatios(final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -389,17 +399,15 @@ public class CameraModule extends ReactContextBaseJavaModule {
                       promise.reject("E_CAMERA_UNAVAILABLE", "Camera is not running");
                   }
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
   public void getCameraIds(final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -415,18 +423,16 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   }
                   promise.resolve(result);
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
                   promise.reject("E_CAMERA_FAILED", e.getMessage());
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
   public void getAvailablePictureSizes(final String ratio, final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -447,7 +453,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   promise.reject("E_CAMERA_BAD_VIEWTAG", "getAvailablePictureSizesAsync: Expected a Camera component");
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -463,16 +469,14 @@ public class CameraModule extends ReactContextBaseJavaModule {
               }
           }
       } catch (Exception e) {
-          e.printStackTrace();
+          Log.w(TAG, "Unexpected exception", e);
       }
       promise.resolve(false);
   }
 
   @ReactMethod
   public void getSupportedPreviewFpsRange(final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -489,10 +493,10 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   }
                   promise.resolve(result);
               } catch (Exception e) {
-                  e.printStackTrace();
+                  Log.w(TAG, "Unexpected exception", e);
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -503,46 +507,40 @@ public class CameraModule extends ReactContextBaseJavaModule {
   // Helper method to check for corrupted videos on Android
   @ReactMethod
   public void checkIfVideoIsValid(final String path, final Promise promise) {
-
-    // run in a background thread in order to
-    // not block the UI
-    new GuardedAsyncTask<Void, Void>(getReactApplicationContext()) {
+    // run in a background thread in order to not block the UI
+    sExecutor.submit(new Runnable() {
       @Override
-      protected void doInBackgroundGuarded(Void... params) {
+      public void run() {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
 
-        try{
+        try {
           try {
               retriever.setDataSource(path);
-          }
-          catch (Exception e){
-              e.printStackTrace();
-
+          } catch (Exception e) {
+              Log.w(TAG, "checkIfVideoIsValid: failed to load video source: " + path, e);
               // if we failed to load the source, also return true
               // as this may cause false positives.
               promise.resolve(true);
               return;
           }
 
-          // extract a few values since different devices may only report
-          // certain metadata
+          // extract a few values since different devices may only report certain metadata
           String hasVideo = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO);
           String mimeType = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE);
 
           // if we were unable to extract metadata, also return true
           // since we will otherwise get false positives.
-          //promise.resolve(hasVideo == null || "yes".equals(hasVideo));
           promise.resolve(hasVideo != null && ("yes".equals(hasVideo) || "true".equals(hasVideo) ||
             mimeType != null && mimeType.contains("video")));
-        }
-        finally{
-          // this many fail or may not be available in API < 29
-          try{
+        } finally {
+          // this may fail or may not be available in API < 29
+          try {
             retriever.release();
+          } catch (Throwable e) {
+            Log.w(TAG, "Failed to release MediaMetadataRetriever", e);
           }
-          catch(Throwable e){}
         }
       }
-    }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    });
   }
 }

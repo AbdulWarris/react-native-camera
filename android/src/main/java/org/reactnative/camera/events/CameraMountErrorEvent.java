@@ -5,6 +5,7 @@ import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
+import com.facebook.react.uimanager.events.RCTModernEventEmitter;
 import org.reactnative.camera.CameraViewManager;
 
 public class CameraMountErrorEvent extends Event<CameraMountErrorEvent> {
@@ -41,6 +42,11 @@ public class CameraMountErrorEvent extends Event<CameraMountErrorEvent> {
   @Override
   public void dispatch(RCTEventEmitter rctEventEmitter) {
     rctEventEmitter.receiveEvent(getViewTag(), getEventName(), serializeEventData());
+  }
+
+  @Override
+  public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
   }
 
   private WritableMap serializeEventData() {

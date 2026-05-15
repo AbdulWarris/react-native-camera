@@ -1,5 +1,95 @@
 [**THE CHANGELOG OF FURTHER VERSIONS (STARTING WITH 1.4.0) IS MAINTAINED WITH GITHUB RELEASES AND CAN BE FOUND HERE**](https://github.com/react-native-community/react-native-camera/releases)
 
+---
+
+## [5.0.0] — Migration V5: RN 0.81 Compatibility
+
+### ⚠️ Breaking Changes
+
+| Area | What changed |
+|---|---|
+| **Minimum React Native** | `>=0.70` (was `>=0.63`). APIs from RN 0.65+ (`getSurfaceId`, `dispatchModern`, `UIManagerHelper`) are required for Fabric/New Architecture support. |
+| **Minimum Android API** | `minSdkVersion 24` (was 16). Devices running Android < 7.0 are no longer supported. |
+| **Minimum iOS** | iOS 11.0 required for still-image capture (`AVCapturePhotoOutput`). `AVCaptureStillImageOutput` was removed. |
+| **Android Gradle / AGP** | AGP 8.3.0 (was 4.1.0), `compileSdk 35`, `targetSdk 34`. JDK 17 is required to build. |
+| **Legacy `RCTCamera` on Android** | `RCTCameraModule` and `RCTCameraViewManager` are no longer registered in `RNCameraPackage`. The legacy `RCTCamera` JS surface is unsupported on Android in v5. |
+| **`ViewPropTypes` removed** | Deprecated `ViewPropTypes` spread removed from `propTypes`. `style` is now declared as `PropTypes.any`. |
+| **`requireNativeComponent` 1-arg form** | The legacy 3-argument `nativeOnly` form was removed; Fabric requires the 1-arg form. |
+
+### ✨ New Features / Improvements
+
+- **iOS**: Migrated still-image capture from deprecated `AVCaptureStillImageOutput` to `AVCapturePhotoOutput`. Added `pendingPhotoCaptures` dictionary for async capture lifecycle and `initWithFrame:` initializer for Fabric.
+- **Android**: All `AsyncTask` subclasses replaced with bounded `ExecutorService` (`newFixedThreadPool(2)`); `GuardedAsyncTask` fully removed.
+- **Android**: Fabric/New Architecture event dispatch via `dispatchModern(RCTModernEventEmitter)` overrides across all 13 event classes.
+- **Android**: `UIManagerModule` lookups routed through null-safe `addUIBlock` helpers; Promise-bearing methods now reject with `E_NO_UI_MANAGER` when `UIManagerModule` is absent.
+- **Android**: MLKit dependencies updated to latest versions (`19.0.1`, `18.3.1`, `17.1.0`, `17.3.0`, `16.1.7`).
+- **Tooling**: Root package test suite added (20 Jest tests); example app test suites fixed (mlkit: 1, advanced: 8).
+
+### 🐛 Bug Fixes
+
+- **Android mlkit `BarcodeDetectorAsyncTask`**: Fixed calendar event `"end"` field incorrectly using `start.getRawValue()`.
+- **Android `FaceDetectorAsyncTask`**: Fixed NPE when `mDelegate` is null — delegate is now checked separately before calling `onFaceDetectionError`.
+- **Android `FileFaceDetectionAsyncTask`**: Added null check for `BitmapFactory.decodeFile` return value; rejects promise with clear error on failure.
+- **Android `TextRecognizerAsyncTask`**: Moved `close()` to `addOnCompleteListener` to ensure the recognizer is always closed exactly once regardless of success or failure.
+- **Android `CameraModule`**: `addUIBlock` now rejects Promise-bearing calls when `UIManagerModule` is absent (New Architecture), preventing permanently-hung JS Promises.
+- **iOS `RNCamera` / `RCTCameraManager`**: `pendingPhotoCaptures` dictionary access synchronized with `@synchronized(self)` to prevent concurrent mutation from different queues.
+- **iOS `RNCamera` / `RCTCameraManager`**: In-flight captures are now rejected on `stopSession` so JS Promises are not permanently hung when the camera is torn down.
+- **iOS `RCTCameraManager`**: `pendingPhotoCaptures` dictionary initialized unconditionally in `startSession` (not only inside the `canAddOutput:` branch).
+- **iOS `RCTCameraManager`**: Added `@available(iOS 11.0, *)` guard around `AVCapturePhotoSettings` / `AVVideoCodecTypeJPEG` usage; rejects with clear error on older iOS.
+- **iOS `RNCameraManager` / `RNCamera`**: Fixed `CFRelease(destination)` crash when `CGImageDestinationCreateWithData` returns `NULL`.
+- **iOS `RNCamera`**: Factored duplicated init code into a private `commonInit` helper shared between `initWithBridge:` and `initWithFrame:`.
+
+---
+
+## [Unreleased] — Android Logging Audit & Example Test Fixes
+
+### 🔧 Android — Structured Logging (android.util.Log)
+
+Replaced all silent `e.printStackTrace()` calls and empty `catch` blocks across the Android native layer with tagged `android.util.Log` statements, making runtime failures traceable via `adb logcat -s RNCamera`.
+
+All log calls use one of two tags:
+- `RNCamera` — used by `RNCameraView`, all task classes, and detector helpers
+- `CameraModule` — used by `CameraModule.java` (tag already existed; `printStackTrace` calls replaced)
+
+#### Files changed
+
+| File | What changed |
+|---|---|
+| `android/src/main/java/org/reactnative/camera/RNCameraView.java` | Added `Log` import and `TAG`; `Log.e` on `takePicture`, `record`, and both NV21 image-decode catch blocks |
+| `android/src/main/java/org/reactnative/camera/CameraViewManager.java` | Added `Log` import and `TAG`; `Log.d` in `onDropViewInstance` |
+| `android/src/main/java/org/reactnative/camera/tasks/ResolveTakenPictureAsyncTask.java` | Added `Log` import and `TAG`; replaced 3× `e.printStackTrace()` with `Log.e` / `Log.w` |
+| `android/src/main/java/org/reactnative/camera/tasks/BarCodeScannerAsyncTask.java` | Added `Log` import and `TAG`; replaced `t.printStackTrace()` with `Log.e` |
+| `android/src/general/java/org/reactnative/camera/tasks/FaceDetectorAsyncTask.java` | Added `Log` import and `TAG`; `Log.w` when detector is not operational; `try-catch` around `detect()` |
+| `android/src/general/java/org/reactnative/camera/tasks/BarcodeDetectorAsyncTask.java` | Same as above for barcode detection |
+| `android/src/general/java/org/reactnative/facedetector/RNFaceDetector.java` | Added `Log` import and `TAG`; `try-catch` in `detect()` returns `null` on failure; safe `close()` with `Log.w` |
+| `android/src/general/java/org/reactnative/barcodedetector/RNBarcodeDetector.java` | Same as above for barcode detector |
+| `android/src/main/java/org/reactnative/camera/CameraModule.java` | Replaced 11× `e.printStackTrace()` / empty `catch (Throwable)` with `Log.w` / `Log.e`; context-specific messages for `takePicture`, `record`, `checkIfVideoIsValid` |
+
+**Result:** Zero `e.printStackTrace()` calls remain in `org.reactnative` Android source.
+
+### ✅ Example Test Suites Fixed
+
+Both `examples/mlkit` and `examples/advanced/advanced` Jest suites were broken — `react-native-camera` could not be resolved in a Node/Jest environment (no native bridge available).
+
+| Example | Fix |
+|---|---|
+| `examples/mlkit` | Added `__mocks__/react-native-camera.js` with full `RNCamera.Constants` surface; added `moduleNameMapper` to `package.json` |
+| `examples/advanced/advanced` | Same mock; added `__tests__/App.test.js` (8 smoke tests covering Constants API used at runtime); added `moduleNameMapper` to `package.json` |
+
+Run tests:
+```sh
+# root package (20 tests)
+npm test
+
+# mlkit example (1 test)
+cd examples/mlkit && npm test
+
+# advanced example (8 tests)
+cd examples/advanced/advanced && npm test
+```
+
+**All 29 tests pass across 3 suites.**
+
 
 #### 1.3.1-9 (2018-10-24)
 

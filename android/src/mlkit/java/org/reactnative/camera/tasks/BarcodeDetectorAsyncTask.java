@@ -1,6 +1,5 @@
 package org.reactnative.camera.tasks;
 
-//import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.Log;
 
@@ -18,8 +17,12 @@ import org.reactnative.barcodedetector.RNBarcodeDetector;
 import org.reactnative.camera.utils.ImageDimensions;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, Void> {
+public class BarcodeDetectorAsyncTask {
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+  private static final String TAG = "RNCamera";
 
   private byte[] mImageData;
   private int mWidth;
@@ -32,7 +35,6 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
   private ImageDimensions mImageDimensions;
   private int mPaddingLeft;
   private int mPaddingTop;
-  private String TAG = "RNCamera";
 
   public BarcodeDetectorAsyncTask(
       BarcodeDetectorAsyncTaskDelegate delegate,
@@ -61,16 +63,16 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
     mPaddingTop = viewPaddingTop;
   }
 
-  @Override
-  protected Void doInBackground(Void... ignored) {
-    if (isCancelled() || mDelegate == null || mBarcodeDetector == null) {
-      return null;
-    }
-
-    InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_YV12);
-
-    BarcodeScanner barcode = mBarcodeDetector.getDetector();
-    barcode.process(image)
+  public void execute() {
+    sExecutor.submit(new Runnable() {
+      @Override
+      public void run() {
+        if (mDelegate == null || mBarcodeDetector == null) {
+          return;
+        }
+        InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_YV12);
+        BarcodeScanner barcode = mBarcodeDetector.getDetector();
+        barcode.process(image)
             .addOnSuccessListener(new OnSuccessListener<List<Barcode>>() {
               @Override
               public void onSuccess(List<Barcode> barcodes) {
@@ -82,47 +84,32 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
             .addOnFailureListener(new OnFailureListener() {
               @Override
               public void onFailure(Exception e) {
-                Log.e(TAG, "Text recognition task failed" + e);
+                Log.e(TAG, "Barcode detection task failed", e);
                 mDelegate.onBarcodeDetectingTaskCompleted();
               }
             });
-    return null;
+      }
+    });
   }
 
-  private int getFirebaseRotation(){
-    int result;
+  private int getFirebaseRotation() {
     switch (mRotation) {
-      case 0:
-        result = 0;
-        break;
-      case 90:
-        result = 90;
-        break;
-      case 180:
-        result = 180;
-        break;
+      case 0: return 0;
+      case 90: return 90;
+      case 180: return 180;
       case -90:
-      case 270:
-        result = 270;
-        break;
+      case 270: return 270;
       default:
-        result = 0;
         Log.e(TAG, "Bad rotation value: " + mRotation);
+        return 0;
     }
-    return result;
   }
-
 
   private WritableArray serializeEventData(List<Barcode> barcodes) {
     WritableArray barcodesList = Arguments.createArray();
-
-    for (Barcode barcode: barcodes) {
-      // TODO implement position and data from all barcode types
+    for (Barcode barcode : barcodes) {
       Rect bounds = barcode.getBoundingBox();
-//      Point[] corners = barcode.getCornerPoints();
-
       String rawValue = barcode.getRawValue();
-
       int valueType = barcode.getValueType();
       int valueFormat = barcode.getFormat();
 
@@ -135,38 +122,25 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
           int type = barcode.getWifi().getEncryptionType();
           String typeString = "UNKNOWN";
           switch (type) {
-            case Barcode.WiFi.TYPE_OPEN:
-              typeString = "Open";
-              break;
-            case Barcode.WiFi.TYPE_WEP:
-              typeString = "WEP";
-              break;
-            case Barcode.WiFi.TYPE_WPA:
-              typeString = "WPA";
-              break;
+            case Barcode.WiFi.TYPE_OPEN: typeString = "Open"; break;
+            case Barcode.WiFi.TYPE_WEP: typeString = "WEP"; break;
+            case Barcode.WiFi.TYPE_WPA: typeString = "WPA"; break;
           }
           serializedBarcode.putString("encryptionType", typeString);
           serializedBarcode.putString("password", password);
           serializedBarcode.putString("ssid", ssid);
           break;
         case Barcode.TYPE_URL:
-          String title = barcode.getUrl().getTitle();
-          String url = barcode.getUrl().getUrl();
-          serializedBarcode.putString("url", url);
-          serializedBarcode.putString("title", title);
+          serializedBarcode.putString("url", barcode.getUrl().getUrl());
+          serializedBarcode.putString("title", barcode.getUrl().getTitle());
           break;
         case Barcode.TYPE_SMS:
-          String message = barcode.getSms().getMessage();
-          String phoneNumber = barcode.getSms().getPhoneNumber();
-          serializedBarcode.putString("message", message);
-          serializedBarcode.putString("title", phoneNumber);
+          serializedBarcode.putString("message", barcode.getSms().getMessage());
+          serializedBarcode.putString("title", barcode.getSms().getPhoneNumber());
           break;
         case Barcode.TYPE_PHONE:
-          String number = barcode.getPhone().getNumber();
-          int typePhone = barcode.getPhone().getType();
-          serializedBarcode.putString("number", number);
-          String typeStringPhone = getPhoneType(typePhone);
-          serializedBarcode.putString("phoneType", typeStringPhone);
+          serializedBarcode.putString("number", barcode.getPhone().getNumber());
+          serializedBarcode.putString("phoneType", getPhoneType(barcode.getPhone().getType()));
           break;
         case Barcode.TYPE_CALENDAR_EVENT:
           serializedBarcode.putString("description", barcode.getCalendarEvent().getDescription());
@@ -176,12 +150,8 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
           serializedBarcode.putString("summary", barcode.getCalendarEvent().getSummary());
           Barcode.CalendarDateTime start = barcode.getCalendarEvent().getStart();
           Barcode.CalendarDateTime end = barcode.getCalendarEvent().getEnd();
-          if (start != null) {
-            serializedBarcode.putString("start", start.getRawValue());
-          }
-          if (end != null) {
-            serializedBarcode.putString("end", start.getRawValue());
-          }
+          if (start != null) serializedBarcode.putString("start", start.getRawValue());
+          if (end != null) serializedBarcode.putString("end", end.getRawValue());
           break;
         case Barcode.TYPE_DRIVER_LICENSE:
           serializedBarcode.putString("addressCity", barcode.getDriverLicense().getAddressCity());
@@ -216,57 +186,45 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
             serializedBarcode.putString("pronunciation", name.getPronunciation());
             serializedBarcode.putString("suffix", name.getSuffix());
           }
-          List<Barcode.Phone> phones = barcode.getContactInfo().getPhones();
           WritableArray phonesList = Arguments.createArray();
-          for (Barcode.Phone phone : phones) {
+          for (Barcode.Phone phone : barcode.getContactInfo().getPhones()) {
             WritableMap phoneObject = Arguments.createMap();
             phoneObject.putString("number", phone.getNumber());
             phoneObject.putString("phoneType", getPhoneType(phone.getType()));
             phonesList.pushMap(phoneObject);
           }
           serializedBarcode.putArray("phones", phonesList);
-          List<Barcode.Address> addresses = barcode.getContactInfo().getAddresses();
           WritableArray addressesList = Arguments.createArray();
-          for (Barcode.Address address : addresses) {
+          for (Barcode.Address address : barcode.getContactInfo().getAddresses()) {
             WritableMap addressesData = Arguments.createMap();
             WritableArray addressesLinesList = Arguments.createArray();
-            String[] addressesLines = address.getAddressLines();
-            for (String line : addressesLines) {
+            for (String line : address.getAddressLines()) {
               addressesLinesList.pushString(line);
             }
             addressesData.putArray("addressLines", addressesLinesList);
-
             int addressType = address.getType();
             String addressTypeString = "UNKNOWN";
-            switch(addressType) {
-              case Barcode.Address.TYPE_WORK:
-                addressTypeString = "Work";
-                break;
-              case Barcode.Address.TYPE_HOME:
-                addressTypeString = "Home";
-                break;
+            switch (addressType) {
+              case Barcode.Address.TYPE_WORK: addressTypeString = "Work"; break;
+              case Barcode.Address.TYPE_HOME: addressTypeString = "Home"; break;
             }
             addressesData.putString("addressType", addressTypeString);
             addressesList.pushMap(addressesData);
           }
           serializedBarcode.putArray("addresses", addressesList);
-          List<Barcode.Email> emails = barcode.getContactInfo().getEmails();
           WritableArray emailsList = Arguments.createArray();
-          for (Barcode.Email email : emails) {
-            WritableMap emailData = processEmail(email);
-            emailsList.pushMap(emailData);
+          for (Barcode.Email email : barcode.getContactInfo().getEmails()) {
+            emailsList.pushMap(processEmail(email));
           }
           serializedBarcode.putArray("emails", emailsList);
-          List<String> urls = barcode.getContactInfo().getUrls();
           WritableArray urlsList = Arguments.createArray();
-          for (String urlContact : urls) {
+          for (String urlContact : barcode.getContactInfo().getUrls()) {
             urlsList.pushString(urlContact);
           }
           serializedBarcode.putArray("urls", urlsList);
           break;
         case Barcode.TYPE_EMAIL:
-          WritableMap emailData = processEmail(barcode.getEmail());
-          serializedBarcode.putMap("email", emailData);
+          serializedBarcode.putMap("email", processEmail(barcode.getEmail()));
           break;
       }
 
@@ -277,7 +235,6 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
       serializedBarcode.putMap("bounds", processBounds(bounds));
       barcodesList.pushMap(serializedBarcode);
     }
-
     return barcodesList;
   }
 
@@ -289,60 +246,41 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, V
     int emailType = email.getType();
     String emailTypeString = "UNKNOWN";
     switch (emailType) {
-      case Barcode.Email.TYPE_WORK:
-        emailTypeString = "Work";
-        break;
-      case Barcode.Email.TYPE_HOME:
-        emailTypeString = "Home";
-        break;
+      case Barcode.Email.TYPE_WORK: emailTypeString = "Work"; break;
+      case Barcode.Email.TYPE_HOME: emailTypeString = "Home"; break;
     }
     emailData.putString("emailType", emailTypeString);
     return emailData;
   }
 
   private String getPhoneType(int typePhone) {
-    String typeStringPhone = "UNKNOWN";
-    switch(typePhone) {
-      case Barcode.Phone.TYPE_WORK:
-        typeStringPhone = "Work";
-        break;
-      case Barcode.Phone.TYPE_HOME:
-        typeStringPhone = "Home";
-        break;
-      case Barcode.Phone.TYPE_FAX:
-        typeStringPhone = "Fax";
-        break;
-      case Barcode.Phone.TYPE_MOBILE:
-        typeStringPhone = "Mobile";
-        break;
+    switch (typePhone) {
+      case Barcode.Phone.TYPE_WORK: return "Work";
+      case Barcode.Phone.TYPE_HOME: return "Home";
+      case Barcode.Phone.TYPE_FAX: return "Fax";
+      case Barcode.Phone.TYPE_MOBILE: return "Mobile";
+      default: return "UNKNOWN";
     }
-    return typeStringPhone;
   }
 
   private WritableMap processBounds(Rect frame) {
     WritableMap origin = Arguments.createMap();
     int x = frame.left;
     int y = frame.top;
-
     if (frame.left < mWidth / 2) {
       x = x + mPaddingLeft / 2;
-    } else if (frame.left > mWidth /2) {
+    } else if (frame.left > mWidth / 2) {
       x = x - mPaddingLeft / 2;
     }
-
     y = y + mPaddingTop;
-
     origin.putDouble("x", x * mScaleX);
     origin.putDouble("y", y * mScaleY);
-
     WritableMap size = Arguments.createMap();
     size.putDouble("width", frame.width() * mScaleX);
     size.putDouble("height", frame.height() * mScaleY);
-
     WritableMap bounds = Arguments.createMap();
     bounds.putMap("origin", origin);
     bounds.putMap("size", size);
     return bounds;
   }
-
 }

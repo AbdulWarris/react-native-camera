@@ -14,7 +14,10 @@
     "react-test-renderer": "16.13.1"
   },
   "jest": {
-    "preset": "react-native"
+    "preset": "react-native",
+    "moduleNameMapper": {
+      "react-native-camera": "<rootDir>/__mocks__/react-native-camera.js"
+    }
   },
   "private": true,
   "scripts": {

@@ -5,7 +5,6 @@ import {
   findNodeHandle,
   Platform,
   NativeModules,
-  ViewPropTypes,
   requireNativeComponent,
   View,
   ActivityIndicator,
@@ -394,7 +393,9 @@ export default class Camera extends React.Component<PropsType, StateType> {
   };
 
   static propTypes = {
-    ...ViewPropTypes,
+    // Standard View props (the deprecated spread was removed in RN 0.68; style is declared
+    // explicitly here so callers passing standard View props do not get PropTypes warnings).
+    style: PropTypes.any,
     zoom: PropTypes.number,
     useNativeZoom: PropTypes.bool,
     maxZoom: PropTypes.number,
@@ -432,7 +433,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
       temperature: PropTypes.number, tint: PropTypes.number,
       redGainOffset: PropTypes.number,
       greenGainOffset: PropTypes.number,
-      blueGainOffset: PropTypes.number
+      blueGainOffset: PropTypes.number,
     })]),
     autoFocus: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.bool]),
     autoFocusPointOfInterest: PropTypes.shape({ x: PropTypes.number, y: PropTypes.number }),
@@ -918,29 +919,4 @@ export function hasTorch() {
   return CameraManager.hasTorch();
 }
 
-const RNCamera = requireNativeComponent('RNCamera', Camera, {
-  nativeOnly: {
-    accessibilityComponentType: true,
-    accessibilityLabel: true,
-    accessibilityLiveRegion: true,
-    barCodeScannerEnabled: true,
-    touchDetectorEnabled: true,
-    googleVisionBarcodeDetectorEnabled: true,
-    faceDetectorEnabled: true,
-    textRecognizerEnabled: true,
-    importantForAccessibility: true,
-    onBarCodeRead: true,
-    onGoogleVisionBarcodesDetected: true,
-    onCameraReady: true,
-    onAudioInterrupted: true,
-    onAudioConnected: true,
-    onPictureSaved: true,
-    onFaceDetected: true,
-    onTouch: true,
-    onLayout: true,
-    onMountError: true,
-    onSubjectAreaChanged: true,
-    renderToHardwareTextureAndroid: true,
-    testID: true,
-  },
-});
+const RNCamera = requireNativeComponent('RNCamera');

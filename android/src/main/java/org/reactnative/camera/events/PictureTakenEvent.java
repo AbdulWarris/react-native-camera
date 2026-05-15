@@ -7,6 +7,7 @@ import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
+import com.facebook.react.uimanager.events.RCTModernEventEmitter;
 
 public class PictureTakenEvent extends Event<PictureTakenEvent> {
   private static final Pools.SynchronizedPool<PictureTakenEvent> EVENTS_POOL = new Pools.SynchronizedPool<>(3);
@@ -34,6 +35,11 @@ public class PictureTakenEvent extends Event<PictureTakenEvent> {
   @Override
   public void dispatch(RCTEventEmitter rctEventEmitter) {
     rctEventEmitter.receiveEvent(getViewTag(), getEventName(), serializeEventData());
+  }
+
+  @Override
+  public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
   }
 
   private WritableMap serializeEventData() {

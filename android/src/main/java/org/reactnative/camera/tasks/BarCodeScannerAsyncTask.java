@@ -1,5 +1,6 @@
 package org.reactnative.camera.tasks;
 
+import android.util.Log;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.NotFoundException;
@@ -7,7 +8,13 @@ import com.google.zxing.PlanarYUVLuminanceSource;
 import com.google.zxing.Result;
 import com.google.zxing.common.HybridBinarizer;
 
-public class BarCodeScannerAsyncTask extends android.os.AsyncTask<Void, Void, Result> {
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class BarCodeScannerAsyncTask {
+  private static final String TAG = "RNCamera";
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+
   private byte[] mImageData;
   private int mWidth;
   private int mHeight;
@@ -53,20 +60,32 @@ public class BarCodeScannerAsyncTask extends android.os.AsyncTask<Void, Void, Re
     mRatio = ratio;
   }
 
-  @Override
-  protected Result doInBackground(Void... ignored) {
-    if (isCancelled() || mDelegate == null) {
+  public void execute() {
+    sExecutor.submit(new Runnable() {
+      @Override
+      public void run() {
+        Result result = scan();
+        if (result != null) {
+          mDelegate.onBarCodeRead(result, mWidth, mHeight, mImageData);
+        }
+        mDelegate.onBarCodeScanningTaskCompleted();
+      }
+    });
+  }
+
+  private Result scan() {
+    if (mDelegate == null) {
       return null;
     }
 
     /**
-     * mCameraViewWidth and mCameraViewHeight are obtained from portait orientation
+     * mCameraViewWidth and mCameraViewHeight are obtained from portrait orientation
      * mWidth and mHeight are measured with landscape orientation with Home button to the right
      * adjustedCamViewWidth is the adjusted width from the Aspect ratio setting
      */
     int adjustedCamViewWidth = (int) (mCameraViewHeight / mRatio);
     float adjustedScanY = (((adjustedCamViewWidth - mCameraViewWidth) / 2) + (mScanAreaY * mCameraViewWidth)) / adjustedCamViewWidth;
-    
+
     int left = (int) (mScanAreaX * mWidth);
     int top = (int) (adjustedScanY * mHeight);
     int scanWidth = (int) (mScanAreaWidth * mWidth);
@@ -74,73 +93,36 @@ public class BarCodeScannerAsyncTask extends android.os.AsyncTask<Void, Void, Re
 
     try {
       try {
-        BinaryBitmap bitmap = generateBitmapFromImageData(
-                mImageData,
-                mWidth,
-                mHeight,
-                false,
-                left,
-                top,
-                scanWidth,
-                scanHeight
-        );
+        BinaryBitmap bitmap = generateBitmapFromImageData(mImageData, mWidth, mHeight, false, left, top, scanWidth, scanHeight);
         return mMultiFormatReader.decodeWithState(bitmap);
       } catch (NotFoundException e) {
       }
 
       try {
-        BinaryBitmap bitmap = generateBitmapFromImageData(
-                rotateImage(mImageData,mWidth, mHeight),
-                mHeight,
-                mWidth,
-                false,
-                mHeight - scanHeight - top,
-                left,
-                scanHeight,
-                scanWidth
-        );
+        BinaryBitmap bitmap = generateBitmapFromImageData(rotateImage(mImageData, mWidth, mHeight), mHeight, mWidth, false, mHeight - scanHeight - top, left, scanHeight, scanWidth);
         return mMultiFormatReader.decodeWithState(bitmap);
       } catch (NotFoundException e) {
       }
 
       try {
-        BinaryBitmap invertedBitmap = generateBitmapFromImageData(
-                mImageData,
-                mWidth,
-                mHeight,
-                true,
-                mWidth - scanWidth - left,
-                mHeight - scanHeight - top,
-                scanWidth,
-                scanHeight
-        );
+        BinaryBitmap invertedBitmap = generateBitmapFromImageData(mImageData, mWidth, mHeight, true, mWidth - scanWidth - left, mHeight - scanHeight - top, scanWidth, scanHeight);
         return mMultiFormatReader.decodeWithState(invertedBitmap);
       } catch (NotFoundException e) {
       }
 
       try {
-        BinaryBitmap invertedRotatedBitmap = generateBitmapFromImageData(
-                rotateImage(mImageData,mWidth, mHeight),
-                mHeight,
-                mWidth,
-                true,
-                top,
-                mWidth - scanWidth - left,
-                scanHeight,
-                scanWidth
-        );
+        BinaryBitmap invertedRotatedBitmap = generateBitmapFromImageData(rotateImage(mImageData, mWidth, mHeight), mHeight, mWidth, true, top, mWidth - scanWidth - left, scanHeight, scanWidth);
         return mMultiFormatReader.decodeWithState(invertedRotatedBitmap);
       } catch (NotFoundException e) {
       }
     } catch (Throwable t) {
-      t.printStackTrace();
+      Log.e(TAG, "BarCode scanning failed", t);
     }
 
-    // no barcode found
     return null;
   }
 
-  private byte[] rotateImage(byte[]imageData,int width, int height) {
+  private byte[] rotateImage(byte[] imageData, int width, int height) {
     byte[] rotated = new byte[imageData.length];
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
@@ -150,39 +132,12 @@ public class BarCodeScannerAsyncTask extends android.os.AsyncTask<Void, Void, Re
     return rotated;
   }
 
-  @Override
-  protected void onPostExecute(Result result) {
-    super.onPostExecute(result);
-    if (result != null) {
-      mDelegate.onBarCodeRead(result, mWidth, mHeight, mImageData);
-    }
-    mDelegate.onBarCodeScanningTaskCompleted();
-  }
-
   private BinaryBitmap generateBitmapFromImageData(byte[] imageData, int width, int height, boolean inverse, int left, int top, int sWidth, int sHeight) {
     PlanarYUVLuminanceSource source;
     if (mLimitScanArea) {
-      source = new PlanarYUVLuminanceSource(
-        imageData, // byte[] yuvData
-        width, // int dataWidth
-        height, // int dataHeight
-        left, // int left
-        top, // int top
-        sWidth, // int width
-        sHeight, // int height
-        false // boolean reverseHorizontal
-      );
+      source = new PlanarYUVLuminanceSource(imageData, width, height, left, top, sWidth, sHeight, false);
     } else {
-      source = new PlanarYUVLuminanceSource(
-        imageData, // byte[] yuvData
-        width, // int dataWidth
-        height, // int dataHeight
-        0, // int left
-        0, // int top
-        width, // int width
-        height, // int height
-        false // boolean reverseHorizontal
-      );
+      source = new PlanarYUVLuminanceSource(imageData, width, height, 0, 0, width, height, false);
     }
     if (inverse) {
       return new BinaryBitmap(new HybridBinarizer(source.invert()));

@@ -42,6 +42,74 @@ Module 'GoogleMLKit' not found (in target 'react-native-camera' from project 'Po
 ## Docs
 Follow our docs here [https://react-native-camera.github.io/react-native-camera/](https://react-native-camera.github.io/react-native-camera/)
 
+---
+
+## 🐛 Android Debugging
+
+All Android native code uses tagged `android.util.Log` calls for structured logcat output. Every module emits logs under one of two tags:
+
+| Tag | Source |
+|---|---|
+| `RNCamera` | `RNCameraView`, all async task classes, face/barcode detector helpers |
+| `CameraModule` | `CameraModule.java` (permission checks, takePicture, record, video validation) |
+
+To stream camera-related logs only:
+
+```sh
+adb logcat -s RNCamera:* CameraModule:* *:S
+```
+
+### Log levels used
+
+| Level | When |
+|---|---|
+| `Log.d` | Lifecycle events (e.g. view dropped) |
+| `Log.w` | Non-fatal issues (e.g. detector not operational, close() failure) |
+| `Log.e` | Errors that affect user-visible behaviour (e.g. takePicture failed, detect() threw) |
+
+### try-catch coverage
+
+The following operations are wrapped in `try-catch` with `Log.e` on failure:
+
+- `RNCameraView.takePicture()` — camera not ready or permission issue
+- `RNCameraView.record()` — video file creation failure
+- `BarCodeScannerAsyncTask` — ZXing decode failure
+- `FaceDetectorAsyncTask` / `BarcodeDetectorAsyncTask` — MLKit `detect()` call
+- `RNFaceDetector.detect()` / `RNBarcodeDetector.detect()` — MLKit processing error
+- `ResolveTakenPictureAsyncTask` — I/O errors during JPEG write or EXIF update
+- `CameraModule` — view tag resolution, recording lifecycle, video metadata retrieval
+
+---
+
+## 🧪 Running Tests
+
+### Root package
+
+```sh
+npm install
+npm test        # Jest — 20 unit tests
+```
+
+### Example: `examples/mlkit`
+
+```sh
+cd examples/mlkit
+npm install
+npm test        # Jest — 1 render smoke test
+```
+
+### Example: `examples/advanced/advanced`
+
+```sh
+cd examples/advanced/advanced
+npm install
+npm test        # Jest — 8 smoke tests covering RNCamera.Constants API
+```
+
+All three suites must pass before merging.
+
+---
+
 ## Sponsors
 
 If you use this library on your commercial/personal projects, you can help us by funding the work on specific issues that you choose by using IssueHunt.io!
