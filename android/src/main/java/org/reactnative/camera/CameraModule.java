@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 public class CameraModule extends ReactContextBaseJavaModule {
@@ -71,6 +73,20 @@ public class CameraModule extends ReactContextBaseJavaModule {
   public CameraModule(ReactApplicationContext reactContext) {
     super(reactContext);
     mScopedContext = new ScopedContext(reactContext);
+  }
+
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+
+  /**
+   * Null-safe helper to run a UIBlock on the old architecture's native view hierarchy.
+   * On the new architecture UIManagerModule may be absent; the block is silently skipped.
+   */
+  private void addUIBlock(final int viewTag, final UIBlock block) {
+    final ReactApplicationContext context = getReactApplicationContext();
+    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
+    if (uiManager != null) {
+      uiManager.addUIBlock(block);
+    }
   }
 
   public ScopedContext getScopedContext() {
@@ -216,9 +232,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void pausePreview(final int viewTag) {
-        final ReactApplicationContext context = getReactApplicationContext();
-        UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-        uiManager.addUIBlock(new UIBlock() {
+        addUIBlock(viewTag, new UIBlock() {
             @Override
             public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
                 final RNCameraView cameraView;
@@ -237,9 +251,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void resumePreview(final int viewTag) {
-        final ReactApplicationContext context = getReactApplicationContext();
-        UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-        uiManager.addUIBlock(new UIBlock() {
+        addUIBlock(viewTag, new UIBlock() {
             @Override
             public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
                 final RNCameraView cameraView;
@@ -258,10 +270,8 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void takePicture(final ReadableMap options, final int viewTag, final Promise promise) {
-    final ReactApplicationContext context = getReactApplicationContext();
     final File cacheDirectory = mScopedContext.getCacheDirectory();
-    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-    uiManager.addUIBlock(new UIBlock() {
+    addUIBlock(viewTag, new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
           RNCameraView cameraView = (RNCameraView) nativeViewHierarchyManager.resolveView(viewTag);
@@ -281,11 +291,8 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void record(final ReadableMap options, final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
       final File cacheDirectory = mScopedContext.getCacheDirectory();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -306,9 +313,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void stopRecording(final int viewTag) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -327,9 +332,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void pauseRecording(final int viewTag) {
-    final ReactApplicationContext context = getReactApplicationContext();
-    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-    uiManager.addUIBlock(new UIBlock() {
+    addUIBlock(viewTag, new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
           final RNCameraView cameraView;
@@ -348,9 +351,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void resumeRecording(final int viewTag) {
-    final ReactApplicationContext context = getReactApplicationContext();
-    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-    uiManager.addUIBlock(new UIBlock() {
+    addUIBlock(viewTag, new UIBlock() {
       @Override
       public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
           final RNCameraView cameraView;
@@ -369,9 +370,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void getSupportedRatios(final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -396,9 +395,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void getCameraIds(final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -423,9 +420,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void getAvailablePictureSizes(final String ratio, final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -469,9 +464,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void getSupportedPreviewFpsRange(final int viewTag, final Promise promise) {
-      final ReactApplicationContext context = getReactApplicationContext();
-      UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
-      uiManager.addUIBlock(new UIBlock() {
+      addUIBlock(viewTag, new UIBlock() {
           @Override
           public void execute(NativeViewHierarchyManager nativeViewHierarchyManager) {
               final RNCameraView cameraView;
@@ -502,46 +495,38 @@ public class CameraModule extends ReactContextBaseJavaModule {
   // Helper method to check for corrupted videos on Android
   @ReactMethod
   public void checkIfVideoIsValid(final String path, final Promise promise) {
-
-    // run in a background thread in order to
-    // not block the UI
-    new GuardedAsyncTask<Void, Void>(getReactApplicationContext()) {
+    // run in a background thread in order to not block the UI
+    sExecutor.submit(new Runnable() {
       @Override
-      protected void doInBackgroundGuarded(Void... params) {
+      public void run() {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
 
-        try{
+        try {
           try {
               retriever.setDataSource(path);
-          }
-          catch (Exception e){
+          } catch (Exception e) {
               e.printStackTrace();
-
               // if we failed to load the source, also return true
               // as this may cause false positives.
               promise.resolve(true);
               return;
           }
 
-          // extract a few values since different devices may only report
-          // certain metadata
+          // extract a few values since different devices may only report certain metadata
           String hasVideo = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO);
           String mimeType = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE);
 
           // if we were unable to extract metadata, also return true
           // since we will otherwise get false positives.
-          //promise.resolve(hasVideo == null || "yes".equals(hasVideo));
           promise.resolve(hasVideo != null && ("yes".equals(hasVideo) || "true".equals(hasVideo) ||
             mimeType != null && mimeType.contains("video")));
-        }
-        finally{
-          // this many fail or may not be available in API < 29
-          try{
+        } finally {
+          // this may fail or may not be available in API < 29
+          try {
             retriever.release();
-          }
-          catch(Throwable e){}
+          } catch (Throwable e) {}
         }
       }
-    }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    });
   }
 }

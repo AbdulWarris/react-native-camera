@@ -480,12 +480,12 @@ RCT_EXPORT_METHOD(setZoom:(CGFloat)zoomFactor) {
       self.presetCamera = AVCaptureDevicePositionBack;
     }
 
-    AVCaptureStillImageOutput *stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
-    if ([self.session canAddOutput:stillImageOutput])
+    AVCapturePhotoOutput *photoOutput = [[AVCapturePhotoOutput alloc] init];
+    if ([self.session canAddOutput:photoOutput])
     {
-      stillImageOutput.outputSettings = @{AVVideoCodecKey : AVVideoCodecJPEG};
-      [self.session addOutput:stillImageOutput];
-      self.stillImageOutput = stillImageOutput;
+      [self.session addOutput:photoOutput];
+      self.photoOutput = photoOutput;
+      self.pendingPhotoCaptures = [NSMutableDictionary dictionary];
     }
 
     AVCaptureMovieFileOutput *movieFileOutput = [[AVCaptureMovieFileOutput alloc] init];
@@ -641,103 +641,109 @@ RCT_EXPORT_METHOD(setZoom:(CGFloat)zoomFactor) {
       NSData *imageData = UIImageJPEGRepresentation(image, 1.0);
       [self saveImage:imageData imageSize:size target:target metadata:nil resolve:resolve reject:reject];
 #else
-      [[self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo] setVideoOrientation:orientation];
-
-      [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:[self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo] completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError *error) {
-
-        if (imageDataSampleBuffer) {
-          NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
-
-          // Create image source
-          CGImageSourceRef source = CGImageSourceCreateWithData((CFDataRef)imageData, NULL);
-          //get all the metadata in the image
-          NSMutableDictionary *imageMetadata = [(NSDictionary *) CFBridgingRelease(CGImageSourceCopyPropertiesAtIndex(source, 0, NULL)) mutableCopy];
-
-          // create cgimage
-          CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, 0, NULL);
-
-          // setup viewport size before using
-          CGSize viewportSize;
-
-          // Rotate it
-          CGImageRef rotatedCGImage;
-          if ([options objectForKey:@"rotation"]) {
-            float rotation = [[options objectForKey:@"rotation"] floatValue];
-            rotatedCGImage = [self newCGImageRotatedByAngle:cgImage angle:rotation];
-          } else if ([[options objectForKey:@"fixOrientation"] boolValue] == YES) {
-            // Get metadata orientation
-            int metadataOrientation = [[imageMetadata objectForKey:(NSString *)kCGImagePropertyOrientation] intValue];
-
-            bool rotated = false;
-            //see http://www.impulseadventure.com/photo/exif-orientation.html
-            if (metadataOrientation == 6) {
-              rotatedCGImage = [self newCGImageRotatedByAngle:cgImage angle:270];
-              rotated = true;
-            } else if (metadataOrientation == 3) {
-              rotatedCGImage = [self newCGImageRotatedByAngle:cgImage angle:180];
-              rotated = true;
-            } else {
-              rotatedCGImage = cgImage;
-            }
-
-            if(rotated) {
-              [imageMetadata setObject:[NSNumber numberWithInteger:1] forKey:(NSString *)kCGImagePropertyOrientation];
-              CGImageRelease(cgImage);
-            }
-          } else {
-            rotatedCGImage = cgImage;
-          }
-
-          // Crop it
-          if (self.cropToPreview) {
-
-              if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]))
-              {
-                  viewportSize = CGSizeMake(self.previewLayer.frame.size.height, self.previewLayer.frame.size.width);
-              } else {
-                  viewportSize = CGSizeMake(self.previewLayer.frame.size.width, self.previewLayer.frame.size.height);
-              }
-
-              CGRect captureRect = CGRectMake(0, 0, CGImageGetWidth(rotatedCGImage), CGImageGetHeight(rotatedCGImage));
-              CGRect croppedSize = AVMakeRectWithAspectRatioInsideRect(viewportSize, captureRect);
-              rotatedCGImage = CGImageCreateWithImageInRect(rotatedCGImage, croppedSize);
-          }
-
-          // Erase stupid TIFF stuff
-          [imageMetadata removeObjectForKey:(NSString *)kCGImagePropertyTIFFDictionary];
-
-          // Add input metadata
-          [imageMetadata mergeMetadata:[options objectForKey:@"metadata"]];
-
-          // Create destination thing
-          NSMutableData *rotatedImageData = [NSMutableData data];
-          CGImageDestinationRef destination = CGImageDestinationCreateWithData((CFMutableDataRef)rotatedImageData, CGImageSourceGetType(source), 1, NULL);
-          CFRelease(source);
-          // add the image to the destination, reattaching metadata
-          CGImageDestinationAddImage(destination, rotatedCGImage, (CFDictionaryRef) imageMetadata);
-          // And write
-          CGImageDestinationFinalize(destination);
-          CGSize frameSize;
-          if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]))
-          {
-            frameSize = CGSizeMake(CGImageGetHeight(rotatedCGImage),
-                                   CGImageGetWidth(rotatedCGImage));
-          } else {
-            frameSize = CGSizeMake(CGImageGetWidth(rotatedCGImage),
-                                   CGImageGetHeight(rotatedCGImage));
-          }
-          CFRelease(destination);
-
-          [self saveImage:rotatedImageData imageSize:frameSize target:target metadata:imageMetadata resolve:resolve reject:reject];
-
-          CGImageRelease(rotatedCGImage);
-        }
-        else {
-          reject(RCTErrorUnspecified, nil, RCTErrorWithMessage(error.description));
-        }
-      }];
+      AVCapturePhotoSettings *photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:
+          @{AVVideoCodecKey: AVVideoCodecTypeJPEG}];
+      AVCaptureConnection *videoConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
+      if (videoConnection) {
+          [videoConnection setVideoOrientation:orientation];
+      }
+      NSNumber *captureId = @(photoSettings.uniqueID);
+      self.pendingPhotoCaptures[captureId] = @{
+          @"options": options ?: @{},
+          @"target": @(target),
+          @"resolve": resolve,
+          @"reject": reject,
+      };
+      [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self];
 #endif
   });
+}
+
+- (void)captureOutput:(AVCapturePhotoOutput *)output
+didFinishProcessingPhoto:(AVCapturePhoto *)photo
+                error:(NSError *)captureError
+{
+    NSNumber *captureId = @(photo.resolvedSettings.uniqueID);
+    NSDictionary *pending = self.pendingPhotoCaptures[captureId];
+    if (!pending) return;
+    [self.pendingPhotoCaptures removeObjectForKey:captureId];
+
+    RCTPromiseResolveBlock resolve = pending[@"resolve"];
+    RCTPromiseRejectBlock reject = pending[@"reject"];
+    NSDictionary *options = pending[@"options"];
+    NSInteger target = [pending[@"target"] integerValue];
+
+    if (captureError) {
+        reject(RCTErrorUnspecified, nil, RCTErrorWithMessage(captureError.description));
+        return;
+    }
+
+    NSData *imageData = [photo fileDataRepresentation];
+    if (!imageData) {
+        reject(RCTErrorUnspecified, nil, RCTErrorWithMessage(@"Failed to get image data"));
+        return;
+    }
+
+    // Create image source
+    CGImageSourceRef source = CGImageSourceCreateWithData((CFDataRef)imageData, NULL);
+    NSMutableDictionary *imageMetadata = [(NSDictionary *) CFBridgingRelease(CGImageSourceCopyPropertiesAtIndex(source, 0, NULL)) mutableCopy];
+    CGImageRef cgImage = CGImageSourceCreateImageAtIndex(source, 0, NULL);
+    CGSize viewportSize;
+
+    CGImageRef rotatedCGImage;
+    if ([options objectForKey:@"rotation"]) {
+        float rotation = [[options objectForKey:@"rotation"] floatValue];
+        rotatedCGImage = [self newCGImageRotatedByAngle:cgImage angle:rotation];
+    } else if ([[options objectForKey:@"fixOrientation"] boolValue] == YES) {
+        int metadataOrientation = [[imageMetadata objectForKey:(NSString *)kCGImagePropertyOrientation] intValue];
+        bool rotated = false;
+        if (metadataOrientation == 6) {
+            rotatedCGImage = [self newCGImageRotatedByAngle:cgImage angle:270];
+            rotated = true;
+        } else if (metadataOrientation == 3) {
+            rotatedCGImage = [self newCGImageRotatedByAngle:cgImage angle:180];
+            rotated = true;
+        } else {
+            rotatedCGImage = cgImage;
+        }
+        if (rotated) {
+            [imageMetadata setObject:[NSNumber numberWithInteger:1] forKey:(NSString *)kCGImagePropertyOrientation];
+            CGImageRelease(cgImage);
+        }
+    } else {
+        rotatedCGImage = cgImage;
+    }
+
+    if (self.cropToPreview) {
+        if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
+            viewportSize = CGSizeMake(self.previewLayer.frame.size.height, self.previewLayer.frame.size.width);
+        } else {
+            viewportSize = CGSizeMake(self.previewLayer.frame.size.width, self.previewLayer.frame.size.height);
+        }
+        CGRect captureRect = CGRectMake(0, 0, CGImageGetWidth(rotatedCGImage), CGImageGetHeight(rotatedCGImage));
+        CGRect croppedSize = AVMakeRectWithAspectRatioInsideRect(viewportSize, captureRect);
+        rotatedCGImage = CGImageCreateWithImageInRect(rotatedCGImage, croppedSize);
+    }
+
+    [imageMetadata removeObjectForKey:(NSString *)kCGImagePropertyTIFFDictionary];
+    [imageMetadata mergeMetadata:[options objectForKey:@"metadata"]];
+
+    NSMutableData *rotatedImageData = [NSMutableData data];
+    CGImageDestinationRef destination = CGImageDestinationCreateWithData((CFMutableDataRef)rotatedImageData, CGImageSourceGetType(source), 1, NULL);
+    CFRelease(source);
+    CGImageDestinationAddImage(destination, rotatedCGImage, (CFDictionaryRef) imageMetadata);
+    CGImageDestinationFinalize(destination);
+
+    CGSize frameSize;
+    if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
+        frameSize = CGSizeMake(CGImageGetHeight(rotatedCGImage), CGImageGetWidth(rotatedCGImage));
+    } else {
+        frameSize = CGSizeMake(CGImageGetWidth(rotatedCGImage), CGImageGetHeight(rotatedCGImage));
+    }
+    CFRelease(destination);
+
+    [self saveImage:rotatedImageData imageSize:frameSize target:target metadata:imageMetadata resolve:resolve reject:reject];
+    CGImageRelease(rotatedCGImage);
 }
 
 

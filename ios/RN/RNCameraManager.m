@@ -37,7 +37,10 @@ RCT_EXPORT_VIEW_PROPERTY(onTouch, RCTDirectEventBlock);
 
 - (UIView *)view
 {
-    return [[RNCamera alloc] initWithBridge:self.bridge];
+    if (self.bridge) {
+        return [[RNCamera alloc] initWithBridge:self.bridge];
+    }
+    return [[RNCamera alloc] initWithFrame:CGRectZero];
 }
 
 - (NSDictionary *)constantsToExport

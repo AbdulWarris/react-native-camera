@@ -430,7 +430,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
       temperature: PropTypes.number, tint: PropTypes.number,
       redGainOffset: PropTypes.number,
       greenGainOffset: PropTypes.number,
-      blueGainOffset: PropTypes.number
+      blueGainOffset: PropTypes.number,
     })]),
     autoFocus: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.bool]),
     autoFocusPointOfInterest: PropTypes.shape({ x: PropTypes.number, y: PropTypes.number }),
