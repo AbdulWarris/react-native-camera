@@ -941,7 +941,7 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
             }
             if (!tiff) {
                 tiff = [[NSMutableDictionary alloc] init];
-                metadata[(NSString*)kCGImagePropertyTIFFDictionary] = exif;
+                metadata[(NSString*)kCGImagePropertyTIFFDictionary] = tiff;
             }
             [exif addEntriesFromDictionary:newExif];
             [tiff addEntriesFromDictionary:newExif];
@@ -1022,7 +1022,7 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
             }
         }
     } else {
-        reject(@"E_IMAGE_CAPTURE_FAILED", @"Image could not be saved", error);
+        reject(@"E_IMAGE_CAPTURE_FAILED", @"Image could not be saved", nil);
     }
 
     @try {

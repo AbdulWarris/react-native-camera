@@ -47,7 +47,7 @@ public class TextRecognizedEvent extends Event<TextRecognizedEvent> {
 
   @Override
   public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
-    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), createEvent());
   }
 
   private WritableMap createEvent() {

@@ -47,6 +47,6 @@ public class RecordingStartEvent extends Event<RecordingStartEvent> {
 
   @Override
   public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
-    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), mResponse);
   }
 }

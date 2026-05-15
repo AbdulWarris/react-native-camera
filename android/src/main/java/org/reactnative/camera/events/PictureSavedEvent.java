@@ -47,6 +47,6 @@ public class PictureSavedEvent extends Event<PictureSavedEvent> {
 
   @Override
   public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
-    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), serializeEventData());
+    rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), mResponse);
   }
 }
