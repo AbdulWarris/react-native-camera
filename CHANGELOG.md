@@ -1,5 +1,56 @@
 [**THE CHANGELOG OF FURTHER VERSIONS (STARTING WITH 1.4.0) IS MAINTAINED WITH GITHUB RELEASES AND CAN BE FOUND HERE**](https://github.com/react-native-community/react-native-camera/releases)
 
+---
+
+## [Unreleased] — Android Logging Audit & Example Test Fixes
+
+### 🔧 Android — Structured Logging (android.util.Log)
+
+Replaced all silent `e.printStackTrace()` calls and empty `catch` blocks across the Android native layer with tagged `android.util.Log` statements, making runtime failures traceable via `adb logcat -s RNCamera`.
+
+All log calls use one of two tags:
+- `RNCamera` — used by `RNCameraView`, all task classes, and detector helpers
+- `CameraModule` — used by `CameraModule.java` (tag already existed; `printStackTrace` calls replaced)
+
+#### Files changed
+
+| File | What changed |
+|---|---|
+| `android/src/main/java/org/reactnative/camera/RNCameraView.java` | Added `Log` import and `TAG`; `Log.e` on `takePicture`, `record`, and both NV21 image-decode catch blocks |
+| `android/src/main/java/org/reactnative/camera/CameraViewManager.java` | Added `Log` import and `TAG`; `Log.d` in `onDropViewInstance` |
+| `android/src/main/java/org/reactnative/camera/tasks/ResolveTakenPictureAsyncTask.java` | Added `Log` import and `TAG`; replaced 3× `e.printStackTrace()` with `Log.e` / `Log.w` |
+| `android/src/main/java/org/reactnative/camera/tasks/BarCodeScannerAsyncTask.java` | Added `Log` import and `TAG`; replaced `t.printStackTrace()` with `Log.e` |
+| `android/src/general/java/org/reactnative/camera/tasks/FaceDetectorAsyncTask.java` | Added `Log` import and `TAG`; `Log.w` when detector is not operational; `try-catch` around `detect()` |
+| `android/src/general/java/org/reactnative/camera/tasks/BarcodeDetectorAsyncTask.java` | Same as above for barcode detection |
+| `android/src/general/java/org/reactnative/facedetector/RNFaceDetector.java` | Added `Log` import and `TAG`; `try-catch` in `detect()` returns `null` on failure; safe `close()` with `Log.w` |
+| `android/src/general/java/org/reactnative/barcodedetector/RNBarcodeDetector.java` | Same as above for barcode detector |
+| `android/src/main/java/org/reactnative/camera/CameraModule.java` | Replaced 11× `e.printStackTrace()` / empty `catch (Throwable)` with `Log.w` / `Log.e`; context-specific messages for `takePicture`, `record`, `checkIfVideoIsValid` |
+
+**Result:** Zero `e.printStackTrace()` calls remain in `org.reactnative` Android source.
+
+### ✅ Example Test Suites Fixed
+
+Both `examples/mlkit` and `examples/advanced/advanced` Jest suites were broken — `react-native-camera` could not be resolved in a Node/Jest environment (no native bridge available).
+
+| Example | Fix |
+|---|---|
+| `examples/mlkit` | Added `__mocks__/react-native-camera.js` with full `RNCamera.Constants` surface; added `moduleNameMapper` to `package.json` |
+| `examples/advanced/advanced` | Same mock; added `__tests__/App.test.js` (8 smoke tests covering Constants API used at runtime); added `moduleNameMapper` to `package.json` |
+
+Run tests:
+```sh
+# root package (20 tests)
+npm test
+
+# mlkit example (1 test)
+cd examples/mlkit && npm test
+
+# advanced example (8 tests)
+cd examples/advanced/advanced && npm test
+```
+
+**All 29 tests pass across 3 suites.**
+
 
 #### 1.3.1-9 (2018-10-24)
 
