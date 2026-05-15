@@ -1,6 +1,7 @@
 package org.reactnative.facedetector;
 
 import android.content.Context;
+import android.util.Log;
 
 import org.reactnative.camera.utils.ImageDimensions;
 import com.google.mlkit.vision.face.Face;
@@ -12,6 +13,7 @@ import org.reactnative.frame.RNFrame;
 import java.util.List;
 
 public class RNFaceDetector {
+  private static final String TAG = "RNCamera";
   public static int ALL_CLASSIFICATIONS = FaceDetectorOptions.CLASSIFICATION_MODE_ALL;
   public static int NO_CLASSIFICATIONS = FaceDetectorOptions.CLASSIFICATION_MODE_NONE;
   public static int ALL_LANDMARKS = FaceDetectorOptions.LANDMARK_MODE_ALL;
@@ -59,7 +61,12 @@ public class RNFaceDetector {
       mPreviousDimensions = frame.getDimensions();
     }
 
-    return mFaceDetector.process(frame.getFrame()).getResult();
+    try {
+      return mFaceDetector.process(frame.getFrame()).getResult();
+    } catch (Exception e) {
+      Log.e(TAG, "RNFaceDetector.detect() failed", e);
+      return null;
+    }
   }
 
   public void setTracking(boolean trackingEnabled) {
@@ -102,7 +109,11 @@ public class RNFaceDetector {
 
   private void releaseFaceDetector() {
     if (mFaceDetector != null) {
-      mFaceDetector.close();
+      try {
+        mFaceDetector.close();
+      } catch (Exception e) {
+        Log.w(TAG, "Failed to close FaceDetector", e);
+      }
       mFaceDetector = null;
     }
   }

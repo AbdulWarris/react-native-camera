@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import android.util.Log;
 import androidx.exifinterface.media.ExifInterface;
 import android.util.Base64;
 
@@ -26,6 +27,7 @@ import java.util.concurrent.Executors;
 
 public class ResolveTakenPictureAsyncTask {
     private static final String ERROR_TAG = "E_TAKING_PICTURE_FAILED";
+    private static final String TAG = "RNCamera";
     private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
 
     private Promise mPromise;
@@ -226,18 +228,18 @@ public class ResolveTakenPictureAsyncTask {
             return response;
 
         } catch (Resources.NotFoundException e) {
+            Log.e(TAG, "Documents directory of the app could not be found", e);
             mPromise.reject(ERROR_TAG, "Documents directory of the app could not be found.", e);
-            e.printStackTrace();
         } catch (IOException e) {
+            Log.e(TAG, "I/O error while processing picture", e);
             mPromise.reject(ERROR_TAG, "An unknown I/O exception has occurred.", e);
-            e.printStackTrace();
         } finally {
             try {
                 if (inputStream != null) {
                     inputStream.close();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.w(TAG, "Failed to close image input stream", e);
             }
         }
 
@@ -296,7 +298,7 @@ public class ResolveTakenPictureAsyncTask {
             fileOutputStream = new FileOutputStream(outputPath);
             imageDataStream.writeTo(fileOutputStream);
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to write image stream to file", e);
             exception = e;
         } finally {
             try {
@@ -304,7 +306,7 @@ public class ResolveTakenPictureAsyncTask {
                     fileOutputStream.close();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.w(TAG, "Failed to close output file stream", e);
             }
         }
 

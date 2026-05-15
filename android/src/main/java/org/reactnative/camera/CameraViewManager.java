@@ -1,6 +1,7 @@
 package org.reactnative.camera;
 
 import androidx.annotation.Nullable;
+import android.util.Log;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.common.MapBuilder;
@@ -44,9 +45,11 @@ public class CameraViewManager extends ViewGroupManager<RNCameraView> {
   }
 
   private static final String REACT_CLASS = "RNCamera";
+  private static final String TAG = "RNCamera";
 
   @Override
   public void onDropViewInstance(RNCameraView view) {
+    Log.d(TAG, "onDropViewInstance: releasing camera view");
     view.onHostDestroy();
     super.onDropViewInstance(view);
   }

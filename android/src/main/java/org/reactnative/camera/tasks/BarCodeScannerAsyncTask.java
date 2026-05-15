@@ -1,5 +1,6 @@
 package org.reactnative.camera.tasks;
 
+import android.util.Log;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.NotFoundException;
@@ -11,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class BarCodeScannerAsyncTask {
+  private static final String TAG = "RNCamera";
   private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
 
   private byte[] mImageData;
@@ -114,7 +116,7 @@ public class BarCodeScannerAsyncTask {
       } catch (NotFoundException e) {
       }
     } catch (Throwable t) {
-      t.printStackTrace();
+      Log.e(TAG, "BarCode scanning failed", t);
     }
 
     return null;

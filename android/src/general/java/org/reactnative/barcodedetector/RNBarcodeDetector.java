@@ -1,6 +1,7 @@
 package org.reactnative.barcodedetector;
 
 import android.content.Context;
+import android.util.Log;
 import com.google.mlkit.vision.barcode.Barcode;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
@@ -12,6 +13,7 @@ import org.reactnative.frame.RNFrame;
 import java.util.List;
 
 public class RNBarcodeDetector {
+    private static final String TAG = "RNCamera";
 
     public static int NORMAL_MODE = 0;
     public static int ALTERNATE_MODE = 1;
@@ -52,7 +54,12 @@ public class RNBarcodeDetector {
             mPreviousDimensions = frame.getDimensions();
         }
 
-        return mBarcodeDetector.process(frame.getFrame()).getResult();
+        try {
+            return mBarcodeDetector.process(frame.getFrame()).getResult();
+        } catch (Exception e) {
+            Log.e(TAG, "RNBarcodeDetector.detect() failed", e);
+            return null;
+        }
     }
 
     public void setBarcodeType(int barcodeType) {
@@ -73,7 +80,11 @@ public class RNBarcodeDetector {
 
     private void releaseBarcodeDetector() {
         if (mBarcodeDetector != null) {
-            mBarcodeDetector.close();
+            try {
+                mBarcodeDetector.close();
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to close BarcodeDetector", e);
+            }
             mBarcodeDetector = null;
         }
     }

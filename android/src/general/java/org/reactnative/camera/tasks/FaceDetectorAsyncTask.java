@@ -1,5 +1,6 @@
 package org.reactnative.camera.tasks;
 
+import android.util.Log;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
@@ -17,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class FaceDetectorAsyncTask {
+  private static final String TAG = "RNCamera";
   private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
 
   private byte[] mImageData;
@@ -63,14 +65,23 @@ public class FaceDetectorAsyncTask {
       @Override
       public void run() {
         if (mDelegate == null || mFaceDetector == null || !mFaceDetector.isOperational()) {
+          Log.w(TAG, "FaceDetectorAsyncTask: detector not operational or delegate null");
           mDelegate.onFaceDetectionError(mFaceDetector);
           return;
         }
 
         RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
-        List<Face> faces = mFaceDetector.detect(frame);
+        List<Face> faces;
+        try {
+          faces = mFaceDetector.detect(frame);
+        } catch (Exception e) {
+          Log.e(TAG, "FaceDetectorAsyncTask: detect() failed", e);
+          mDelegate.onFaceDetectionError(mFaceDetector);
+          return;
+        }
 
         if (faces == null) {
+          Log.w(TAG, "FaceDetectorAsyncTask: null result from detect()");
           mDelegate.onFaceDetectionError(mFaceDetector);
         } else {
           if (faces.size() > 0) {

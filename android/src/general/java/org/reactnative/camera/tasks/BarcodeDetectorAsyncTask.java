@@ -1,6 +1,7 @@
 package org.reactnative.camera.tasks;
 
 import android.graphics.Rect;
+import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
@@ -18,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class BarcodeDetectorAsyncTask {
+  private static final String TAG = "RNCamera";
   private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
 
   private byte[] mImageData;
@@ -63,14 +65,23 @@ public class BarcodeDetectorAsyncTask {
       @Override
       public void run() {
         if (mDelegate == null || mBarcodeDetector == null || !mBarcodeDetector.isOperational()) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: detector not operational or delegate null");
           mDelegate.onBarcodeDetectionError(mBarcodeDetector);
           return;
         }
 
         RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
-        List<Barcode> barcodes = mBarcodeDetector.detect(frame);
+        List<Barcode> barcodes;
+        try {
+          barcodes = mBarcodeDetector.detect(frame);
+        } catch (Exception e) {
+          Log.e(TAG, "BarcodeDetectorAsyncTask: detect() failed", e);
+          mDelegate.onBarcodeDetectionError(mBarcodeDetector);
+          return;
+        }
 
         if (barcodes == null) {
+          Log.w(TAG, "BarcodeDetectorAsyncTask: null result from detect()");
           mDelegate.onBarcodeDetectionError(mBarcodeDetector);
         } else {
           if (barcodes.size() > 0) {
