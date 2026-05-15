@@ -111,6 +111,8 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
             promise.resolve(null);
         }
         final File cacheDirectory = mPictureTakenDirectories.remove(promise);
+        // ResolveTakenPictureAsyncTask uses its own internal bounded executor pool
+        // to process images in parallel (analogous to the previous AsyncTask.THREAD_POOL_EXECUTOR).
         new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, deviceOrientation, softwareRotation, RNCameraView.this)
                 .execute();
         RNCameraViewHelper.emitPictureTakenEvent(cameraView);

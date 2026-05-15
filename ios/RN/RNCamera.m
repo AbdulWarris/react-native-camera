@@ -55,51 +55,53 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 BOOL _recordRequested = NO;
 BOOL _sessionInterrupted = NO;
 
+- (void)commonInit
+{
+    self.session = [AVCaptureSession new];
+    self.sessionQueue = dispatch_queue_create("cameraQueue", DISPATCH_QUEUE_SERIAL);
+    self.sensorOrientationChecker = [RNSensorOrientationChecker new];
+    self.textDetector = [self createTextDetector];
+    self.faceDetector = [self createFaceDetectorMlKit];
+    self.barcodeDetector = nil;
+    self.finishedReadingText = true;
+    self.finishedDetectingFace = true;
+    self.startText = [NSDate date];
+    self.startFace = [NSDate date];
+    self.pendingPhotoCaptures = [[NSMutableDictionary alloc] init];
+#if !(TARGET_IPHONE_SIMULATOR)
+    self.previewLayer = [AVCaptureVideoPreviewLayer layerWithSession:self.session];
+    self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
+    self.previewLayer.needsDisplayOnBoundsChange = YES;
+#endif
+    self.rectOfInterest = CGRectMake(0, 0, 1.0, 1.0);
+
+    UITapGestureRecognizer *tapHandler = [self createTapGestureRecognizer];
+    [self addGestureRecognizer:tapHandler];
+    UITapGestureRecognizer *doubleTapHandler = [self createDoubleTapGestureRecognizer];
+    [self addGestureRecognizer:doubleTapHandler];
+
+    self.autoFocus = -1;
+    self.exposure = -1;
+    self.presetCamera = AVCaptureDevicePositionUnspecified;
+    self.cameraId = @"";
+    self.isFocusedOnPoint = NO;
+    self.isExposedOnPoint = NO;
+    self.invertImageData = true;
+    _recordRequested = NO;
+    _sessionInterrupted = NO;
+}
 
 - (id)initWithBridge:(RCTBridge *)bridge
 {
     if ((self = [super init])) {
         self.bridge = bridge;
-        self.session = [AVCaptureSession new];
-        self.sessionQueue = dispatch_queue_create("cameraQueue", DISPATCH_QUEUE_SERIAL);
-        self.sensorOrientationChecker = [RNSensorOrientationChecker new];
-        self.textDetector = [self createTextDetector];
-        self.faceDetector = [self createFaceDetectorMlKit];
-        self.barcodeDetector = nil; // Only initialize barcode detector if explicitly needed
-        self.finishedReadingText = true;
-        self.finishedDetectingFace = true;
-        self.startText = [NSDate date];
-        self.startFace = [NSDate date];
-#if !(TARGET_IPHONE_SIMULATOR)
-        self.previewLayer =
-        [AVCaptureVideoPreviewLayer layerWithSession:self.session];
-        self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-        self.previewLayer.needsDisplayOnBoundsChange = YES;
-#endif
-        self.rectOfInterest = CGRectMake(0, 0, 1.0, 1.0);
-
-        UITapGestureRecognizer * tapHandler=[self createTapGestureRecognizer];
-        [self addGestureRecognizer:tapHandler];
-        UITapGestureRecognizer * doubleTapHandler=[self createDoubleTapGestureRecognizer];
-        [self addGestureRecognizer:doubleTapHandler];
-
-        self.autoFocus = -1;
-        self.exposure = -1;
-        self.presetCamera = AVCaptureDevicePositionUnspecified;
-        self.cameraId = @"";
-        self.isFocusedOnPoint = NO;
-        self.isExposedOnPoint = NO;
-        self.invertImageData = true;
-        _recordRequested = NO;
-        _sessionInterrupted = NO;
+        [self commonInit];
 
         // we will do other initialization after
         // the view is loaded.
         // This is to prevent code if the view is unused as react
         // might create multiple instances of it.
         // and we need to also add/remove event listeners.
-
-
     }
     return self;
 }
@@ -107,37 +109,9 @@ BOOL _sessionInterrupted = NO;
 - (instancetype)initWithFrame:(CGRect)frame
 {
     if ((self = [super initWithFrame:frame])) {
-        self.session = [AVCaptureSession new];
-        self.sessionQueue = dispatch_queue_create("cameraQueue", DISPATCH_QUEUE_SERIAL);
-        self.sensorOrientationChecker = [RNSensorOrientationChecker new];
-        self.textDetector = [self createTextDetector];
-        self.faceDetector = [self createFaceDetectorMlKit];
-        self.barcodeDetector = nil;
-        self.finishedReadingText = true;
-        self.finishedDetectingFace = true;
-        self.startText = [NSDate date];
-        self.startFace = [NSDate date];
-#if !(TARGET_IPHONE_SIMULATOR)
-        self.previewLayer = [AVCaptureVideoPreviewLayer layerWithSession:self.session];
-        self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-        self.previewLayer.needsDisplayOnBoundsChange = YES;
-#endif
-        self.rectOfInterest = CGRectMake(0, 0, 1.0, 1.0);
-
-        UITapGestureRecognizer *tapHandler = [self createTapGestureRecognizer];
-        [self addGestureRecognizer:tapHandler];
-        UITapGestureRecognizer *doubleTapHandler = [self createDoubleTapGestureRecognizer];
-        [self addGestureRecognizer:doubleTapHandler];
-
-        self.autoFocus = -1;
-        self.exposure = -1;
-        self.presetCamera = AVCaptureDevicePositionUnspecified;
-        self.cameraId = @"";
-        self.isFocusedOnPoint = NO;
-        self.isExposedOnPoint = NO;
-        self.invertImageData = true;
-        _recordRequested = NO;
-        _sessionInterrupted = NO;
+        // Note: no bridge available in Fabric init; event dispatch will use
+        // the Fabric-compatible path (RCTModernEventEmitter) instead of bridge.eventDispatcher.
+        [self commonInit];
     }
     return self;
 }
@@ -818,21 +792,22 @@ BOOL _sessionInterrupted = NO;
     }
     settings.highResolutionPhotoEnabled = YES;
 
-    if (!self.pendingPhotoCaptures) {
-        self.pendingPhotoCaptures = [[NSMutableDictionary alloc] init];
+    @synchronized(self) {
+        self.pendingPhotoCaptures[@(settings.uniqueID)] = @{
+            @"options": options,
+            @"resolve": resolve,
+            @"reject": reject,
+            @"orientation": @(orientation),
+            @"deviceOrientation": deviceOrientation,
+        };
     }
-    self.pendingPhotoCaptures[@(settings.uniqueID)] = @{
-        @"options": options,
-        @"resolve": resolve,
-        @"reject": reject,
-        @"orientation": @(orientation),
-        @"deviceOrientation": deviceOrientation,
-    };
 
     @try {
         [self.photoOutput capturePhotoWithSettings:settings delegate:self];
     } @catch (NSException *exception) {
-        [self.pendingPhotoCaptures removeObjectForKey:@(settings.uniqueID)];
+        @synchronized(self) {
+            [self.pendingPhotoCaptures removeObjectForKey:@(settings.uniqueID)];
+        }
         reject(
             @"E_IMAGE_CAPTURE_FAILED",
             @"Got exception while taking picture",
@@ -846,9 +821,12 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
                 error:(NSError *)error API_AVAILABLE(ios(11.0))
 {
     NSNumber *uniqueID = @(photo.resolvedSettings.uniqueID);
-    NSDictionary *pending = self.pendingPhotoCaptures[uniqueID];
-    if (!pending) return;
-    [self.pendingPhotoCaptures removeObjectForKey:uniqueID];
+    NSDictionary *pending;
+    @synchronized(self) {
+        pending = self.pendingPhotoCaptures[uniqueID];
+        if (!pending) return;
+        [self.pendingPhotoCaptures removeObjectForKey:uniqueID];
+    }
 
     RCTPromiseResolveBlock resolve = pending[@"resolve"];
     RCTPromiseRejectBlock reject = pending[@"reject"];
@@ -1026,7 +1004,9 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
     }
 
     @try {
-        CFRelease(destination);
+        if (destination) {
+            CFRelease(destination);
+        }
     } @catch (NSException *exception) {
         RCTLogError(@"Failed to release CGImageDestinationRef: %@", exception);
     }
@@ -1379,6 +1359,18 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
         if ([self.faceDetector isRealDetector]) {
             [self stopFaceDetection];
         }
+
+        // Reject any in-flight photo captures so JS promises don't hang.
+        @synchronized(self) {
+            for (NSNumber *key in self.pendingPhotoCaptures) {
+                RCTPromiseRejectBlock reject = self.pendingPhotoCaptures[key][@"reject"];
+                if (reject) {
+                    reject(@"E_SESSION_STOPPED", @"Camera session stopped before capture completed.", nil);
+                }
+            }
+            [self.pendingPhotoCaptures removeAllObjects];
+        }
+
         [self.previewLayer removeFromSuperlayer];
         [self.session commitConfiguration];
         [self.session stopRunning];

@@ -82,6 +82,10 @@ public class FileFaceDetectionAsyncTask {
       public void run() {
         mRNFaceDetector = detectorForOptions(mOptions, mContext);
         Bitmap bitmap = BitmapFactory.decodeFile(mPath);
+        if (bitmap == null) {
+          mPromise.reject(ERROR_TAG, "Failed to decode image file: `" + mPath + "`.");
+          return;
+        }
         mWidth = bitmap.getWidth();
         mHeight = bitmap.getHeight();
 

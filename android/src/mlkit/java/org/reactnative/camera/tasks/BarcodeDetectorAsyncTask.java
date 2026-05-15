@@ -151,7 +151,7 @@ public class BarcodeDetectorAsyncTask {
           Barcode.CalendarDateTime start = barcode.getCalendarEvent().getStart();
           Barcode.CalendarDateTime end = barcode.getCalendarEvent().getEnd();
           if (start != null) serializedBarcode.putString("start", start.getRawValue());
-          if (end != null) serializedBarcode.putString("end", start.getRawValue());
+          if (end != null) serializedBarcode.putString("end", end.getRawValue());
           break;
         case Barcode.TYPE_DRIVER_LICENSE:
           serializedBarcode.putString("addressCity", barcode.getDriverLicense().getAddressCity());

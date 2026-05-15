@@ -19,7 +19,8 @@ import java.util.concurrent.Executors;
 
 public class FaceDetectorAsyncTask {
   private static final String TAG = "RNCamera";
-  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+  // Use a bounded pool to limit threads during sustained preview-frame analysis.
+  private static final ExecutorService sExecutor = Executors.newFixedThreadPool(2);
 
   private byte[] mImageData;
   private int mWidth;
@@ -64,8 +65,12 @@ public class FaceDetectorAsyncTask {
     sExecutor.submit(new Runnable() {
       @Override
       public void run() {
-        if (mDelegate == null || mFaceDetector == null || !mFaceDetector.isOperational()) {
-          Log.w(TAG, "FaceDetectorAsyncTask: detector not operational or delegate null");
+        if (mDelegate == null) {
+          Log.w(TAG, "FaceDetectorAsyncTask: delegate null, skipping");
+          return;
+        }
+        if (mFaceDetector == null || !mFaceDetector.isOperational()) {
+          Log.w(TAG, "FaceDetectorAsyncTask: detector not operational");
           mDelegate.onFaceDetectionError(mFaceDetector);
           return;
         }

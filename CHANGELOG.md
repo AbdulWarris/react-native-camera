@@ -2,6 +2,45 @@
 
 ---
 
+## [5.0.0] — Migration V5: RN 0.81 Compatibility
+
+### ⚠️ Breaking Changes
+
+| Area | What changed |
+|---|---|
+| **Minimum React Native** | `>=0.70` (was `>=0.63`). APIs from RN 0.65+ (`getSurfaceId`, `dispatchModern`, `UIManagerHelper`) are required for Fabric/New Architecture support. |
+| **Minimum Android API** | `minSdkVersion 24` (was 16). Devices running Android < 7.0 are no longer supported. |
+| **Minimum iOS** | iOS 11.0 required for still-image capture (`AVCapturePhotoOutput`). `AVCaptureStillImageOutput` was removed. |
+| **Android Gradle / AGP** | AGP 8.3.0 (was 4.1.0), `compileSdk 35`, `targetSdk 34`. JDK 17 is required to build. |
+| **Legacy `RCTCamera` on Android** | `RCTCameraModule` and `RCTCameraViewManager` are no longer registered in `RNCameraPackage`. The legacy `RCTCamera` JS surface is unsupported on Android in v5. |
+| **`ViewPropTypes` removed** | Deprecated `ViewPropTypes` spread removed from `propTypes`. `style` is now declared as `PropTypes.any`. |
+| **`requireNativeComponent` 1-arg form** | The legacy 3-argument `nativeOnly` form was removed; Fabric requires the 1-arg form. |
+
+### ✨ New Features / Improvements
+
+- **iOS**: Migrated still-image capture from deprecated `AVCaptureStillImageOutput` to `AVCapturePhotoOutput`. Added `pendingPhotoCaptures` dictionary for async capture lifecycle and `initWithFrame:` initializer for Fabric.
+- **Android**: All `AsyncTask` subclasses replaced with bounded `ExecutorService` (`newFixedThreadPool(2)`); `GuardedAsyncTask` fully removed.
+- **Android**: Fabric/New Architecture event dispatch via `dispatchModern(RCTModernEventEmitter)` overrides across all 13 event classes.
+- **Android**: `UIManagerModule` lookups routed through null-safe `addUIBlock` helpers; Promise-bearing methods now reject with `E_NO_UI_MANAGER` when `UIManagerModule` is absent.
+- **Android**: MLKit dependencies updated to latest versions (`19.0.1`, `18.3.1`, `17.1.0`, `17.3.0`, `16.1.7`).
+- **Tooling**: Root package test suite added (20 Jest tests); example app test suites fixed (mlkit: 1, advanced: 8).
+
+### 🐛 Bug Fixes
+
+- **Android mlkit `BarcodeDetectorAsyncTask`**: Fixed calendar event `"end"` field incorrectly using `start.getRawValue()`.
+- **Android `FaceDetectorAsyncTask`**: Fixed NPE when `mDelegate` is null — delegate is now checked separately before calling `onFaceDetectionError`.
+- **Android `FileFaceDetectionAsyncTask`**: Added null check for `BitmapFactory.decodeFile` return value; rejects promise with clear error on failure.
+- **Android `TextRecognizerAsyncTask`**: Moved `close()` to `addOnCompleteListener` to ensure the recognizer is always closed exactly once regardless of success or failure.
+- **Android `CameraModule`**: `addUIBlock` now rejects Promise-bearing calls when `UIManagerModule` is absent (New Architecture), preventing permanently-hung JS Promises.
+- **iOS `RNCamera` / `RCTCameraManager`**: `pendingPhotoCaptures` dictionary access synchronized with `@synchronized(self)` to prevent concurrent mutation from different queues.
+- **iOS `RNCamera` / `RCTCameraManager`**: In-flight captures are now rejected on `stopSession` so JS Promises are not permanently hung when the camera is torn down.
+- **iOS `RCTCameraManager`**: `pendingPhotoCaptures` dictionary initialized unconditionally in `startSession` (not only inside the `canAddOutput:` branch).
+- **iOS `RCTCameraManager`**: Added `@available(iOS 11.0, *)` guard around `AVCapturePhotoSettings` / `AVVideoCodecTypeJPEG` usage; rejects with clear error on older iOS.
+- **iOS `RNCameraManager` / `RNCamera`**: Fixed `CFRelease(destination)` crash when `CGImageDestinationCreateWithData` returns `NULL`.
+- **iOS `RNCamera`**: Factored duplicated init code into a private `commonInit` helper shared between `initWithBridge:` and `initWithFrame:`.
+
+---
+
 ## [Unreleased] — Android Logging Audit & Example Test Fixes
 
 ### 🔧 Android — Structured Logging (android.util.Log)

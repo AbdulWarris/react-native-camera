@@ -94,9 +94,9 @@ describe('package.json compliance', () => {
     expect(pkg.version).toBe('5.0.0');
   });
 
-  test('peerDependencies includes react-native >=0.63 <=0.81', () => {
-    expect(pkg.peerDependencies['react-native']).toMatch(/0\.63/);
-    expect(pkg.peerDependencies['react-native']).toMatch(/0\.81/);
+  test('peerDependencies includes react-native >=0.70 <0.82', () => {
+    expect(pkg.peerDependencies['react-native']).toMatch(/0\.70/);
+    expect(pkg.peerDependencies['react-native']).toMatch(/0\.82/);
   });
 
   test('test script exists', () => {

@@ -82,10 +82,20 @@ public class CameraModule extends ReactContextBaseJavaModule {
    * On the new architecture UIManagerModule may be absent; the block is silently skipped.
    */
   private void addUIBlock(final int viewTag, final UIBlock block) {
+    addUIBlock(viewTag, block, null);
+  }
+
+  /**
+   * Null-safe helper with Promise rejection when UIManagerModule is absent.
+   * Promise-bearing methods should call this overload so the JS caller is not left hanging.
+   */
+  private void addUIBlock(final int viewTag, final UIBlock block, @Nullable final Promise promise) {
     final ReactApplicationContext context = getReactApplicationContext();
     UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
     if (uiManager != null) {
       uiManager.addUIBlock(block);
+    } else if (promise != null) {
+      promise.reject("E_NO_UI_MANAGER", "UIManagerModule is not available (New Architecture requires Fabric-compatible APIs).");
     }
   }
 
@@ -287,7 +297,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
             promise.reject("E_TAKE_PICTURE_FAILED", e.getMessage());
           }
       }
-    });
+    }, promise);
   }
 
   @ReactMethod
@@ -310,7 +320,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   promise.reject("E_CAPTURE_FAILED", e.getMessage());
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -392,7 +402,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   Log.w(TAG, "Unexpected exception", e);
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -417,7 +427,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   promise.reject("E_CAMERA_FAILED", e.getMessage());
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -443,7 +453,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   promise.reject("E_CAMERA_BAD_VIEWTAG", "getAvailablePictureSizesAsync: Expected a Camera component");
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -486,7 +496,7 @@ public class CameraModule extends ReactContextBaseJavaModule {
                   Log.w(TAG, "Unexpected exception", e);
               }
           }
-      });
+      }, promise);
   }
 
   @ReactMethod
@@ -528,7 +538,8 @@ public class CameraModule extends ReactContextBaseJavaModule {
             retriever.release();
           } catch (Throwable e) {
             Log.w(TAG, "Failed to release MediaMetadataRetriever", e);
-          }        }
+          }
+        }
       }
     });
   }

@@ -11,8 +11,10 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
 
 import com.google.android.cameraview.CameraView;
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognizer;
@@ -93,6 +95,12 @@ public class TextRecognizerAsyncTask {
               public void onFailure(Exception e) {
                 Log.e(TAG, "Text recognition task failed", e);
                 mDelegate.onTextRecognizerTaskCompleted();
+              }
+            })
+            .addOnCompleteListener(new OnCompleteListener<Text>() {
+              @Override
+              public void onComplete(Task<Text> task) {
+                detector.close();
               }
             });
       }

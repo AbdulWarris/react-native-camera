@@ -481,11 +481,12 @@ RCT_EXPORT_METHOD(setZoom:(CGFloat)zoomFactor) {
     }
 
     AVCapturePhotoOutput *photoOutput = [[AVCapturePhotoOutput alloc] init];
+    // Initialize pendingPhotoCaptures unconditionally so captureStill: can always use it.
+    self.pendingPhotoCaptures = [NSMutableDictionary dictionary];
     if ([self.session canAddOutput:photoOutput])
     {
       [self.session addOutput:photoOutput];
       self.photoOutput = photoOutput;
-      self.pendingPhotoCaptures = [NSMutableDictionary dictionary];
     }
 
     AVCaptureMovieFileOutput *movieFileOutput = [[AVCaptureMovieFileOutput alloc] init];
@@ -523,6 +524,16 @@ RCT_EXPORT_METHOD(setZoom:(CGFloat)zoomFactor) {
 #endif
   dispatch_async(self.sessionQueue, ^{
     self.camera = nil;
+    // Reject any in-flight photo captures so JS promises don't hang.
+    @synchronized(self) {
+      for (NSNumber *key in self.pendingPhotoCaptures) {
+        RCTPromiseRejectBlock reject = self.pendingPhotoCaptures[key][@"reject"];
+        if (reject) {
+          reject(RCTErrorUnspecified, nil, RCTErrorWithMessage(@"Camera session stopped before capture completed."));
+        }
+      }
+      [self.pendingPhotoCaptures removeAllObjects];
+    }
     [self.previewLayer removeFromSuperlayer];
     [self.session commitConfiguration];
     [self.session stopRunning];
@@ -641,20 +652,26 @@ RCT_EXPORT_METHOD(setZoom:(CGFloat)zoomFactor) {
       NSData *imageData = UIImageJPEGRepresentation(image, 1.0);
       [self saveImage:imageData imageSize:size target:target metadata:nil resolve:resolve reject:reject];
 #else
-      AVCapturePhotoSettings *photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:
-          @{AVVideoCodecKey: AVVideoCodecTypeJPEG}];
-      AVCaptureConnection *videoConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
-      if (videoConnection) {
-          [videoConnection setVideoOrientation:orientation];
+      if (@available(iOS 11.0, *)) {
+        AVCapturePhotoSettings *photoSettings = [AVCapturePhotoSettings photoSettingsWithFormat:
+            @{AVVideoCodecKey: AVVideoCodecTypeJPEG}];
+        AVCaptureConnection *videoConnection = [self.photoOutput connectionWithMediaType:AVMediaTypeVideo];
+        if (videoConnection) {
+            [videoConnection setVideoOrientation:orientation];
+        }
+        NSNumber *captureId = @(photoSettings.uniqueID);
+        @synchronized(self) {
+          self.pendingPhotoCaptures[captureId] = @{
+              @"options": options ?: @{},
+              @"target": @(target),
+              @"resolve": resolve,
+              @"reject": reject,
+          };
+        }
+        [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self];
+      } else {
+        reject(RCTErrorUnspecified, nil, RCTErrorWithMessage(@"Photo capture requires iOS 11.0 or later."));
       }
-      NSNumber *captureId = @(photoSettings.uniqueID);
-      self.pendingPhotoCaptures[captureId] = @{
-          @"options": options ?: @{},
-          @"target": @(target),
-          @"resolve": resolve,
-          @"reject": reject,
-      };
-      [self.photoOutput capturePhotoWithSettings:photoSettings delegate:self];
 #endif
   });
 }
@@ -664,9 +681,12 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
                 error:(NSError *)captureError
 {
     NSNumber *captureId = @(photo.resolvedSettings.uniqueID);
-    NSDictionary *pending = self.pendingPhotoCaptures[captureId];
-    if (!pending) return;
-    [self.pendingPhotoCaptures removeObjectForKey:captureId];
+    NSDictionary *pending;
+    @synchronized(self) {
+        pending = self.pendingPhotoCaptures[captureId];
+        if (!pending) return;
+        [self.pendingPhotoCaptures removeObjectForKey:captureId];
+    }
 
     RCTPromiseResolveBlock resolve = pending[@"resolve"];
     RCTPromiseRejectBlock reject = pending[@"reject"];
@@ -731,8 +751,10 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
     NSMutableData *rotatedImageData = [NSMutableData data];
     CGImageDestinationRef destination = CGImageDestinationCreateWithData((CFMutableDataRef)rotatedImageData, CGImageSourceGetType(source), 1, NULL);
     CFRelease(source);
-    CGImageDestinationAddImage(destination, rotatedCGImage, (CFDictionaryRef) imageMetadata);
-    CGImageDestinationFinalize(destination);
+    if (destination) {
+        CGImageDestinationAddImage(destination, rotatedCGImage, (CFDictionaryRef) imageMetadata);
+        CGImageDestinationFinalize(destination);
+    }
 
     CGSize frameSize;
     if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
@@ -740,7 +762,9 @@ didFinishProcessingPhoto:(AVCapturePhoto *)photo
     } else {
         frameSize = CGSizeMake(CGImageGetWidth(rotatedCGImage), CGImageGetHeight(rotatedCGImage));
     }
-    CFRelease(destination);
+    if (destination) {
+        CFRelease(destination);
+    }
 
     [self saveImage:rotatedImageData imageSize:frameSize target:target metadata:imageMetadata resolve:resolve reject:reject];
     CGImageRelease(rotatedCGImage);

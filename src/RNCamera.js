@@ -393,6 +393,9 @@ export default class Camera extends React.Component<PropsType, StateType> {
   };
 
   static propTypes = {
+    // Standard View props (the deprecated spread was removed in RN 0.68; style is declared
+    // explicitly here so callers passing standard View props do not get PropTypes warnings).
+    style: PropTypes.any,
     zoom: PropTypes.number,
     useNativeZoom: PropTypes.bool,
     maxZoom: PropTypes.number,
