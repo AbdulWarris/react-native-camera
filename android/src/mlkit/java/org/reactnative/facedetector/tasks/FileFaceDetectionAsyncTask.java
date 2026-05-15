@@ -3,7 +3,6 @@ package org.reactnative.facedetector.tasks;
 import android.content.Context;
 import androidx.exifinterface.media.ExifInterface;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.util.Log;
 
 import org.reactnative.facedetector.RNFaceDetector;
@@ -22,9 +21,12 @@ import com.google.mlkit.vision.face.FaceDetector;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class FileFaceDetectionAsyncTask extends AsyncTask<Void, Void, Void> {
+public class FileFaceDetectionAsyncTask {
   private static final String ERROR_TAG = "E_FACE_DETECTION_FAILED";
+  private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
 
   private static final String MODE_OPTION_KEY = "mode";
   private static final String DETECT_LANDMARKS_OPTION_KEY = "detectLandmarks";
@@ -47,11 +49,10 @@ public class FileFaceDetectionAsyncTask extends AsyncTask<Void, Void, Void> {
     mContext = context;
   }
 
-  @Override
-  protected void onPreExecute() {
+  public void execute() {
+    // Validate inputs before submitting to executor
     if (mUri == null) {
       mPromise.reject(ERROR_TAG, "You have to provide an URI of an image.");
-      cancel(true);
       return;
     }
 
@@ -60,73 +61,64 @@ public class FileFaceDetectionAsyncTask extends AsyncTask<Void, Void, Void> {
 
     if (mPath == null) {
       mPromise.reject(ERROR_TAG, "Invalid URI provided: `" + mUri + "`.");
-      cancel(true);
       return;
     }
 
-    // We have to check if the requested image is in a directory safely accessible by our app.
     boolean fileIsInSafeDirectories =
-          mPath.startsWith(mContext.getCacheDir().getPath()) || mPath.startsWith(mContext.getFilesDir().getPath());
+        mPath.startsWith(mContext.getCacheDir().getPath()) || mPath.startsWith(mContext.getFilesDir().getPath());
 
     if (!fileIsInSafeDirectories) {
       mPromise.reject(ERROR_TAG, "The image has to be in the local app's directories.");
-      cancel(true);
       return;
     }
 
-    if(!new File(mPath).exists()) {
+    if (!new File(mPath).exists()) {
       mPromise.reject(ERROR_TAG, "The file does not exist. Given path: `" + mPath + "`.");
-      cancel(true);
-    }
-  }
-
-  @Override
-  protected Void doInBackground(Void... voids) {
-    if (isCancelled()) {
-      return null;
+      return;
     }
 
-    mRNFaceDetector = detectorForOptions(mOptions, mContext);
+    sExecutor.submit(new Runnable() {
+      @Override
+      public void run() {
+        mRNFaceDetector = detectorForOptions(mOptions, mContext);
 
-    try {
-      ExifInterface exif = new ExifInterface(mPath);
-      mOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-    } catch (IOException e) {
-      Log.e(ERROR_TAG, "Reading orientation from file `" + mPath + "` failed.", e);
-    }
+        try {
+          ExifInterface exif = new ExifInterface(mPath);
+          mOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+        } catch (IOException e) {
+          Log.e(ERROR_TAG, "Reading orientation from file `" + mPath + "` failed.", e);
+        }
 
-    try {
-      InputImage image = InputImage.fromFilePath(mContext, Uri.parse(mUri));
-      FaceDetector detector = mRNFaceDetector.getDetector();
-      detector.process(image)
-              .addOnSuccessListener(
-                      new OnSuccessListener<List<Face>>() {
-                        @Override
-                        public void onSuccess(List<Face> faces) {
-                          serializeEventData(faces);
-                        }
-                      })
-              .addOnFailureListener(
-                      new OnFailureListener() {
-                        @Override
-                        public void onFailure(Exception e) {
-                          Log.e(ERROR_TAG, "Text recognition task failed", e);
-                          mPromise.reject(ERROR_TAG, "Text recognition task failed", e);
-                        }
-                      });
-    } catch (IOException e) {
-      e.printStackTrace();
-      Log.e(ERROR_TAG, "Creating Firebase Image from uri" + mUri + "failed", e);
-      mPromise.reject(ERROR_TAG, "Creating Firebase Image from uri" + mUri + "failed", e);
-    }
-    return null;
+        try {
+          InputImage image = InputImage.fromFilePath(mContext, Uri.parse(mUri));
+          FaceDetector detector = mRNFaceDetector.getDetector();
+          detector.process(image)
+              .addOnSuccessListener(new OnSuccessListener<List<Face>>() {
+                @Override
+                public void onSuccess(List<Face> faces) {
+                  serializeEventData(faces);
+                }
+              })
+              .addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(Exception e) {
+                  Log.e(ERROR_TAG, "Face detection task failed", e);
+                  mPromise.reject(ERROR_TAG, "Face detection task failed", e);
+                }
+              });
+        } catch (IOException e) {
+          Log.e(ERROR_TAG, "Creating InputImage from uri " + mUri + " failed", e);
+          mPromise.reject(ERROR_TAG, "Creating InputImage from uri " + mUri + " failed", e);
+        }
+      }
+    });
   }
 
   private void serializeEventData(List<Face> faces) {
     WritableMap result = Arguments.createMap();
     WritableArray facesArray = Arguments.createArray();
 
-    for(Face face : faces) {
+    for (Face face : faces) {
       WritableMap encodedFace = FaceDetectorUtils.serializeFace(face);
       encodedFace.putDouble("yawAngle", (-encodedFace.getDouble("yawAngle") + 360) % 360);
       encodedFace.putDouble("rollAngle", (-encodedFace.getDouble("rollAngle") + 360) % 360);
@@ -149,19 +141,15 @@ public class FileFaceDetectionAsyncTask extends AsyncTask<Void, Void, Void> {
   private static RNFaceDetector detectorForOptions(ReadableMap options, Context context) {
     RNFaceDetector detector = new RNFaceDetector(context);
     detector.setTracking(false);
-
-    if(options.hasKey(MODE_OPTION_KEY)) {
+    if (options.hasKey(MODE_OPTION_KEY)) {
       detector.setMode(options.getInt(MODE_OPTION_KEY));
     }
-
-    if(options.hasKey(RUN_CLASSIFICATIONS_OPTION_KEY)) {
+    if (options.hasKey(RUN_CLASSIFICATIONS_OPTION_KEY)) {
       detector.setClassificationType(options.getInt(RUN_CLASSIFICATIONS_OPTION_KEY));
     }
-
-    if(options.hasKey(DETECT_LANDMARKS_OPTION_KEY)) {
+    if (options.hasKey(DETECT_LANDMARKS_OPTION_KEY)) {
       detector.setLandmarkType(options.getInt(DETECT_LANDMARKS_OPTION_KEY));
     }
-
     return detector;
   }
 }

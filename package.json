@@ -1,7 +1,7 @@
 {
   "name": "react-native-camera",
   "description": "A Camera component for React Native. Also reads barcodes.",
-  "version": "4.2.1",
+  "version": "5.0.0",
   "author": "Lochlan Wansbrough <lochie@live.com> (http://lwansbrough.com)",
   "collective": {
     "type": "opencollective",
@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "prop-types": "^15.6.2"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-native": ">=0.63 <=0.81"
   },
   "devDependencies": {
     "@babel/runtime": "^7.3.1",

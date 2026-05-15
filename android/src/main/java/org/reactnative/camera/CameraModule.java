@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.media.MediaMetadataRetriever;
-import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Toast;
 
