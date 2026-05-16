@@ -78,31 +78,44 @@ public class TextRecognizerAsyncTask {
         if (mDelegate == null) {
           return;
         }
-        TextRecognizer detector = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_NV21);
-        detector.process(image)
-            .addOnSuccessListener(new OnSuccessListener<Text>() {
-              @Override
-              public void onSuccess(Text firebaseVisionText) {
-                List<Text.TextBlock> textBlocks = firebaseVisionText.getTextBlocks();
-                WritableArray serializedData = serializeEventData(textBlocks);
-                mDelegate.onTextRecognized(serializedData);
-                mDelegate.onTextRecognizerTaskCompleted();
-              }
-            })
-            .addOnFailureListener(new OnFailureListener() {
-              @Override
-              public void onFailure(Exception e) {
-                Log.e(TAG, "Text recognition task failed", e);
-                mDelegate.onTextRecognizerTaskCompleted();
-              }
-            })
-            .addOnCompleteListener(new OnCompleteListener<Text>() {
-              @Override
-              public void onComplete(Task<Text> task) {
-                detector.close();
-              }
-            });
+        final TextRecognizer detector = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+        try {
+          InputImage image;
+          try {
+            image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_NV21);
+          } catch (RuntimeException nv21Error) {
+            Log.w(TAG, "NV21 frame rejected by ML Kit, retrying with YV12", nv21Error);
+            image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_YV12);
+          }
+
+          detector.process(image)
+              .addOnSuccessListener(new OnSuccessListener<Text>() {
+                @Override
+                public void onSuccess(Text firebaseVisionText) {
+                  List<Text.TextBlock> textBlocks = firebaseVisionText.getTextBlocks();
+                  WritableArray serializedData = serializeEventData(textBlocks);
+                  mDelegate.onTextRecognized(serializedData);
+                  mDelegate.onTextRecognizerTaskCompleted();
+                }
+              })
+              .addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(Exception e) {
+                  Log.e(TAG, "Text recognition task failed", e);
+                  mDelegate.onTextRecognizerTaskCompleted();
+                }
+              })
+              .addOnCompleteListener(new OnCompleteListener<Text>() {
+                @Override
+                public void onComplete(Task<Text> task) {
+                  detector.close();
+                }
+              });
+        } catch (Exception e) {
+          Log.e(TAG, "Failed to start text recognition task", e);
+          detector.close();
+          mDelegate.onTextRecognizerTaskCompleted();
+        }
       }
     });
   }
@@ -170,6 +183,19 @@ public class TextRecognizerAsyncTask {
   }
 
   private WritableMap processBounds(Rect frame) {
+    if (frame == null) {
+      WritableMap origin = Arguments.createMap();
+      origin.putDouble("x", 0);
+      origin.putDouble("y", 0);
+      WritableMap size = Arguments.createMap();
+      size.putDouble("width", 0);
+      size.putDouble("height", 0);
+      WritableMap bounds = Arguments.createMap();
+      bounds.putMap("origin", origin);
+      bounds.putMap("size", size);
+      return bounds;
+    }
+
     WritableMap origin = Arguments.createMap();
     int x = frame.left;
     int y = frame.top;
