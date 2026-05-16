@@ -40,6 +40,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate,
     BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate, PictureSavedDelegate {
   private static final String TAG = "RNCamera";
+  private static final String TEXT_DEBUG_TAG = "RNCameraView";
+  private static final long TEXT_DEBUG_LOG_INTERVAL_MS = 1500;
   private ThemedReactContext mThemedReactContext;
   private Queue<Promise> mPictureTakenPromises = new ConcurrentLinkedQueue<>();
   private Map<Promise, ReadableMap> mPictureTakenOptions = new ConcurrentHashMap<>();
@@ -82,6 +84,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private boolean mTrackingEnabled = true;
   private int mPaddingX;
   private int mPaddingY;
+  private long mLastTextDebugLogTsMs = 0L;
 
   // Limit Android Scan Area
   private boolean mLimitScanArea = false;
@@ -163,11 +166,25 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         boolean willCallFaceTask = mShouldDetectFaces && !faceDetectorTaskLock && cameraView instanceof FaceDetectorAsyncTaskDelegate;
         boolean willCallGoogleBarcodeTask = mShouldGoogleDetectBarcodes && !googleBarcodeDetectorTaskLock && cameraView instanceof BarcodeDetectorAsyncTaskDelegate;
         boolean willCallTextTask = mShouldRecognizeText && !textRecognizerTaskLock && cameraView instanceof TextRecognizerAsyncTaskDelegate;
+
+        if (shouldLogTextDebug()) {
+          Log.d(TEXT_DEBUG_TAG, "onFramePreview: textEnabled=" + mShouldRecognizeText
+              + ", textLock=" + textRecognizerTaskLock
+              + ", willCallTextTask=" + willCallTextTask
+              + ", dataLen=" + data.length
+              + ", frame=" + width + "x" + height
+              + ", rotation=" + rotation
+              + ", correctRotation=" + correctRotation);
+        }
+
         if (!willCallBarCodeTask && !willCallFaceTask && !willCallGoogleBarcodeTask && !willCallTextTask) {
           return;
         }
 
         if (data.length < (1.5 * width * height)) {
+            Log.w(TEXT_DEBUG_TAG, "Skipping preview frame: insufficient YUV bytes. dataLen=" + data.length
+                + ", expectedAtLeast=" + (int) (1.5 * width * height)
+                + ", frame=" + width + "x" + height);
             return;
         }
 
@@ -205,6 +222,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
         if (willCallTextTask) {
           textRecognizerTaskLock = true;
+          Log.d(TEXT_DEBUG_TAG, "Starting TextRecognizerAsyncTask for frame " + width + "x" + height + ", bytes=" + data.length);
           TextRecognizerAsyncTaskDelegate delegate = (TextRecognizerAsyncTaskDelegate) cameraView;
           new TextRecognizerAsyncTask(delegate, mThemedReactContext, data, width, height, correctRotation, getResources().getDisplayMetrics().density, getFacing(), getWidth(), getHeight(), mPaddingX, mPaddingY).execute();
         }
@@ -578,6 +596,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
   public void setShouldRecognizeText(boolean shouldRecognizeText) {
     this.mShouldRecognizeText = shouldRecognizeText;
+    Log.d(TEXT_DEBUG_TAG, "setShouldRecognizeText=" + shouldRecognizeText);
     setScanning(mShouldDetectFaces || mShouldGoogleDetectBarcodes || mShouldScanBarCodes || mShouldRecognizeText);
   }
 
@@ -586,12 +605,24 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       return;
     }
 
+    Log.d(TEXT_DEBUG_TAG, "onTextRecognized blocks=" + serializedData.size());
+
     RNCameraViewHelper.emitTextRecognizedEvent(this, serializedData);
   }
 
   @Override
   public void onTextRecognizerTaskCompleted() {
     textRecognizerTaskLock = false;
+    Log.d(TEXT_DEBUG_TAG, "onTextRecognizerTaskCompleted: lock released");
+  }
+
+  private boolean shouldLogTextDebug() {
+    long now = System.currentTimeMillis();
+    if (now - mLastTextDebugLogTsMs >= TEXT_DEBUG_LOG_INTERVAL_MS) {
+      mLastTextDebugLogTsMs = now;
+      return true;
+    }
+    return false;
   }
 
   /**

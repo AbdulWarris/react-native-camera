@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
 
 public class TextRecognizerAsyncTask {
   private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
-  private static final String TAG = "RNCamera";
+  private static final String TAG = "RNCameraView";
 
   private TextRecognizerAsyncTaskDelegate mDelegate;
   private ThemedReactContext mThemedReactContext;
@@ -80,6 +80,7 @@ public class TextRecognizerAsyncTask {
         }
         final TextRecognizer detector = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
         try {
+          Log.d(TAG, "TextRecognizerAsyncTask start: frame=" + mWidth + "x" + mHeight + ", bytes=" + mImageData.length + ", rotation=" + mRotation);
           InputImage image;
           try {
             image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_NV21);
@@ -93,6 +94,7 @@ public class TextRecognizerAsyncTask {
                 @Override
                 public void onSuccess(Text firebaseVisionText) {
                   List<Text.TextBlock> textBlocks = firebaseVisionText.getTextBlocks();
+                  Log.d(TAG, "Text recognition success: blocks=" + textBlocks.size());
                   WritableArray serializedData = serializeEventData(textBlocks);
                   mDelegate.onTextRecognized(serializedData);
                   mDelegate.onTextRecognizerTaskCompleted();
@@ -108,6 +110,7 @@ public class TextRecognizerAsyncTask {
               .addOnCompleteListener(new OnCompleteListener<Text>() {
                 @Override
                 public void onComplete(Task<Text> task) {
+                  Log.d(TAG, "Text recognition complete: success=" + task.isSuccessful());
                   detector.close();
                 }
               });
