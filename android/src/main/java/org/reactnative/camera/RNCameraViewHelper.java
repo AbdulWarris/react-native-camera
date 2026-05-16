@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.media.CamcorderProfile;
 import android.os.Build;
+import android.util.Log;
 import androidx.exifinterface.media.ExifInterface;
 import android.view.ViewGroup;
 import com.facebook.react.bridge.Arguments;
@@ -25,6 +26,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class RNCameraViewHelper {
+  private static final String TAG = "RNCameraView";
 
   public static final String[][] exifTags = new String[][]{
       {"string", ExifInterface.TAG_ARTIST},
@@ -255,6 +257,7 @@ public class RNCameraViewHelper {
 
   public static void emitTextRecognizedEvent(final ViewGroup view, final WritableArray data) {
     final ReactContext reactContext = (ReactContext) view.getContext();
+    Log.d(TAG, "emitTextRecognizedEvent viewId=" + view.getId() + ", blocks=" + (data == null ? -1 : data.size()));
     dispatchEvent(reactContext, view.getId(), TextRecognizedEvent.obtain(view.getId(), data));
   }
 

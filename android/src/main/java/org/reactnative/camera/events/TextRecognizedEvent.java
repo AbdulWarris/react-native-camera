@@ -1,6 +1,7 @@
 package org.reactnative.camera.events;
 
 import androidx.core.util.Pools;
+import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
@@ -13,6 +14,7 @@ import org.reactnative.camera.CameraViewManager;
 
 
 public class TextRecognizedEvent extends Event<TextRecognizedEvent> {
+  private static final String TAG = "RNCameraView";
 
   private static final Pools.SynchronizedPool<TextRecognizedEvent> EVENTS_POOL =
       new Pools.SynchronizedPool<>(3);
@@ -42,11 +44,13 @@ public class TextRecognizedEvent extends Event<TextRecognizedEvent> {
 
   @Override
   public void dispatch(RCTEventEmitter rctEventEmitter) {
+    Log.d(TAG, "TextRecognizedEvent.dispatch viewTag=" + getViewTag() + ", blocks=" + (mData == null ? -1 : mData.size()));
     rctEventEmitter.receiveEvent(getViewTag(), getEventName(), createEvent());
   }
 
   @Override
   public void dispatchModern(RCTModernEventEmitter rctModernEventEmitter) {
+    Log.d(TAG, "TextRecognizedEvent.dispatchModern viewTag=" + getViewTag() + ", surfaceId=" + getSurfaceId() + ", blocks=" + (mData == null ? -1 : mData.size()));
     rctModernEventEmitter.receiveEvent(getSurfaceId(), getViewTag(), getEventName(), createEvent());
   }
 

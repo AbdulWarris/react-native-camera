@@ -30,6 +30,7 @@ import org.reactnative.frame.RNFrameFactory;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class TextRecognizerAsyncTask {
@@ -47,6 +48,7 @@ public class TextRecognizerAsyncTask {
   private double mScaleY;
   private int mPaddingLeft;
   private int mPaddingTop;
+  private final AtomicBoolean mTaskCompleted = new AtomicBoolean(false);
 
   public TextRecognizerAsyncTask(
           TextRecognizerAsyncTaskDelegate delegate,
@@ -80,41 +82,68 @@ public class TextRecognizerAsyncTask {
       @Override
       public void run() {
         if (mDelegate == null) {
+          Log.w(TAG, "TextRecognizerAsyncTask aborted: delegate is null");
           return;
         }
         final TextRecognizer textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        RNFrame frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
+        RNFrame frame;
+        try {
+          frame = RNFrameFactory.buildFrame(mImageData, mWidth, mHeight, mRotation);
+        } catch (Exception frameError) {
+          Log.e(TAG, "Failed to build frame for text recognition", frameError);
+          textRecognizer.close();
+          notifyTaskCompletedOnce();
+          return;
+        }
+
+        Log.d(TAG, "TextRecognizerAsyncTask start: frame=" + mWidth + "x" + mHeight + ", bytes=" + mImageData.length + ", rotation=" + mRotation);
         textRecognizer.process(frame.getFrame())
             .addOnSuccessListener(new OnSuccessListener<Text>() {
               @Override
               public void onSuccess(Text text) {
-                WritableArray textBlocksList = Arguments.createArray();
-                for (TextBlock textBlock : text.getTextBlocks()) {
-                  WritableMap serializedTextBlock = serializeText(textBlock);
-                  if (mImageDimensions.getFacing() == CameraView.FACING_FRONT) {
-                    serializedTextBlock = rotateTextX(serializedTextBlock);
+                Log.d(TAG, "Text recognition success: blocks=" + text.getTextBlocks().size() + ", allTextLen=" + text.getText().length());
+                try {
+                  WritableArray textBlocksList = Arguments.createArray();
+                  for (TextBlock textBlock : text.getTextBlocks()) {
+                    WritableMap serializedTextBlock = serializeText(textBlock);
+                    if (mImageDimensions.getFacing() == CameraView.FACING_FRONT) {
+                      serializedTextBlock = rotateTextX(serializedTextBlock);
+                    }
+                    textBlocksList.pushMap(serializedTextBlock);
                   }
-                  textBlocksList.pushMap(serializedTextBlock);
+                  mDelegate.onTextRecognized(textBlocksList);
+                } catch (Exception dispatchError) {
+                  Log.e(TAG, "Text recognition dispatch failed", dispatchError);
+                } finally {
+                  notifyTaskCompletedOnce();
                 }
-                mDelegate.onTextRecognized(textBlocksList);
-                mDelegate.onTextRecognizerTaskCompleted();
               }
             })
             .addOnFailureListener(new OnFailureListener() {
               @Override
               public void onFailure(Exception e) {
                 Log.e(TAG, "Text recognition task failed", e);
-                mDelegate.onTextRecognizerTaskCompleted();
+                notifyTaskCompletedOnce();
               }
             })
             .addOnCompleteListener(new OnCompleteListener<Text>() {
               @Override
               public void onComplete(Task<Text> task) {
+                Log.d(TAG, "Text recognition complete: success=" + task.isSuccessful());
+                if (!task.isSuccessful() && task.getException() != null) {
+                  Log.e(TAG, "Text recognition complete with exception", task.getException());
+                }
                 textRecognizer.close();
               }
             });
       }
     });
+  }
+
+  private void notifyTaskCompletedOnce() {
+    if (mTaskCompleted.compareAndSet(false, true)) {
+      mDelegate.onTextRecognizerTaskCompleted();
+    }
   }
 
   private WritableMap serializeText(TextBlock text) {

@@ -222,6 +222,7 @@ public class CameraViewManager extends ViewGroupManager<RNCameraView> {
 
   @ReactProp(name = "textRecognizerEnabled")
   public void setTextRecognizing(RNCameraView view, boolean textRecognizerEnabled) {
+    Log.d(TAG, "setTextRecognizing(viewId=" + view.getId() + ")=" + textRecognizerEnabled);
     view.setShouldRecognizeText(textRecognizerEnabled);
   }
 

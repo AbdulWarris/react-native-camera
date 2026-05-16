@@ -26,6 +26,7 @@ import org.reactnative.camera.utils.ImageDimensions;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class TextRecognizerAsyncTask {
@@ -43,6 +44,7 @@ public class TextRecognizerAsyncTask {
   private ImageDimensions mImageDimensions;
   private int mPaddingLeft;
   private int mPaddingTop;
+  private final AtomicBoolean mTaskCompleted = new AtomicBoolean(false);
 
   public TextRecognizerAsyncTask(
       TextRecognizerAsyncTaskDelegate delegate,
@@ -76,6 +78,7 @@ public class TextRecognizerAsyncTask {
       @Override
       public void run() {
         if (mDelegate == null) {
+          Log.w(TAG, "TextRecognizerAsyncTask aborted: delegate is null");
           return;
         }
         final TextRecognizer detector = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
@@ -94,33 +97,47 @@ public class TextRecognizerAsyncTask {
                 @Override
                 public void onSuccess(Text firebaseVisionText) {
                   List<Text.TextBlock> textBlocks = firebaseVisionText.getTextBlocks();
-                  Log.d(TAG, "Text recognition success: blocks=" + textBlocks.size());
-                  WritableArray serializedData = serializeEventData(textBlocks);
-                  mDelegate.onTextRecognized(serializedData);
-                  mDelegate.onTextRecognizerTaskCompleted();
+                  Log.d(TAG, "Text recognition success: blocks=" + textBlocks.size() + ", allTextLen=" + firebaseVisionText.getText().length());
+                  try {
+                    WritableArray serializedData = serializeEventData(textBlocks);
+                    mDelegate.onTextRecognized(serializedData);
+                  } catch (Exception dispatchError) {
+                    Log.e(TAG, "Text recognition dispatch failed", dispatchError);
+                  } finally {
+                    notifyTaskCompletedOnce();
+                  }
                 }
               })
               .addOnFailureListener(new OnFailureListener() {
                 @Override
                 public void onFailure(Exception e) {
                   Log.e(TAG, "Text recognition task failed", e);
-                  mDelegate.onTextRecognizerTaskCompleted();
+                  notifyTaskCompletedOnce();
                 }
               })
               .addOnCompleteListener(new OnCompleteListener<Text>() {
                 @Override
                 public void onComplete(Task<Text> task) {
                   Log.d(TAG, "Text recognition complete: success=" + task.isSuccessful());
+                  if (!task.isSuccessful() && task.getException() != null) {
+                    Log.e(TAG, "Text recognition complete with exception", task.getException());
+                  }
                   detector.close();
                 }
               });
         } catch (Exception e) {
           Log.e(TAG, "Failed to start text recognition task", e);
           detector.close();
-          mDelegate.onTextRecognizerTaskCompleted();
+          notifyTaskCompletedOnce();
         }
       }
     });
+  }
+
+  private void notifyTaskCompletedOnce() {
+    if (mTaskCompleted.compareAndSet(false, true)) {
+      mDelegate.onTextRecognizerTaskCompleted();
+    }
   }
 
   private int getFirebaseRotation() {
