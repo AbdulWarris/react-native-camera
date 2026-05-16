@@ -35,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
@@ -1067,7 +1068,7 @@ class Camera1 extends CameraViewImpl implements MediaRecorder.OnInfoListener,
 
             // to be consistent with Camera2, and to prevent crashes on some devices
             // do not allow preview sizes that are not also in the picture sizes set
-            for (AspectRatio aspectRatio : mPreviewSizes.ratios()) {
+            for (AspectRatio aspectRatio : new HashSet<>(mPreviewSizes.ratios())) {
                 if (mPictureSizes.sizes(aspectRatio) == null) {
                     mPreviewSizes.remove(aspectRatio);
                 }

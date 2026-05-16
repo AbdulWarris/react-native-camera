@@ -79,7 +79,7 @@ public class TextRecognizerAsyncTask {
           return;
         }
         TextRecognizer detector = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_YV12);
+        InputImage image = InputImage.fromByteArray(mImageData, mWidth, mHeight, getFirebaseRotation(), InputImage.IMAGE_FORMAT_NV21);
         detector.process(image)
             .addOnSuccessListener(new OnSuccessListener<Text>() {
               @Override

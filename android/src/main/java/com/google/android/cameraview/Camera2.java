@@ -190,13 +190,15 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
             try (Image image = reader.acquireNextImage()) {
                 Image.Plane[] planes = image.getPlanes();
                 if (planes.length > 0) {
-                    ByteBuffer buffer = planes[0].getBuffer();
-                    byte[] data = new byte[buffer.remaining()];
-                    buffer.get(data);
+                    byte[] data;
                     if (image.getFormat() == ImageFormat.JPEG) {
+                        ByteBuffer buffer = planes[0].getBuffer();
+                        data = new byte[buffer.remaining()];
+                        buffer.get(data);
                         // @TODO: implement deviceOrientation
                         mCallback.onPictureTaken(data, 0, 0);
                     } else {
+                        data = yuv420888ToNv21(image);
                         mCallback.onFramePreview(data, image.getWidth(), image.getHeight(), mDisplayOrientation);
                     }
                     image.close();
@@ -273,6 +275,45 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
     private Surface mPreviewSurface;
 
     private Rect mInitialCropRegion;
+
+    private byte[] yuv420888ToNv21(Image image) {
+        final int width = image.getWidth();
+        final int height = image.getHeight();
+        final int frameSize = width * height;
+        final byte[] out = new byte[frameSize + (frameSize / 2)];
+
+        final Image.Plane[] planes = image.getPlanes();
+        final ByteBuffer yBuffer = planes[0].getBuffer();
+        final ByteBuffer uBuffer = planes[1].getBuffer();
+        final ByteBuffer vBuffer = planes[2].getBuffer();
+
+        final int yRowStride = planes[0].getRowStride();
+        final int yPixelStride = planes[0].getPixelStride();
+        int outPos = 0;
+        for (int row = 0; row < height; row++) {
+            int rowStart = row * yRowStride;
+            for (int col = 0; col < width; col++) {
+                out[outPos++] = yBuffer.get(rowStart + col * yPixelStride);
+            }
+        }
+
+        final int uRowStride = planes[1].getRowStride();
+        final int uPixelStride = planes[1].getPixelStride();
+        final int vRowStride = planes[2].getRowStride();
+        final int vPixelStride = planes[2].getPixelStride();
+
+        outPos = frameSize;
+        for (int row = 0; row < height / 2; row++) {
+            int uRowStart = row * uRowStride;
+            int vRowStart = row * vRowStride;
+            for (int col = 0; col < width / 2; col++) {
+                out[outPos++] = vBuffer.get(vRowStart + col * vPixelStride);
+                out[outPos++] = uBuffer.get(uRowStart + col * uPixelStride);
+            }
+        }
+
+        return out;
+    }
 
     Camera2(Callback callback, PreviewImpl preview, Context context, Handler bgHandler) {
         super(callback, preview, bgHandler);
@@ -898,7 +939,7 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
         if (mPictureSize == null) {
             mPictureSize = mPictureSizes.sizes(mAspectRatio).last();
         }
-        for (AspectRatio ratio : mPreviewSizes.ratios()) {
+        for (AspectRatio ratio : new HashSet<>(mPreviewSizes.ratios())) {
             if (!mPictureSizes.ratios().contains(ratio)) {
                 mPreviewSizes.remove(ratio);
             }
