@@ -187,7 +187,12 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
 
         @Override
         public void onImageAvailable(ImageReader reader) {
-            try (Image image = reader.acquireNextImage()) {
+            Image latestImage = reader.acquireLatestImage();
+            if (latestImage == null) {
+                return;
+            }
+
+            try (Image image = latestImage) {
                 Image.Plane[] planes = image.getPlanes();
                 if (planes.length > 0) {
                     byte[] data;
@@ -198,11 +203,16 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
                         // @TODO: implement deviceOrientation
                         mCallback.onPictureTaken(data, 0, 0);
                     } else {
-                        data = yuv420888ToNv21(image);
-                        mCallback.onFramePreview(data, image.getWidth(), image.getHeight(), mDisplayOrientation);
+                        try {
+                            data = yuv420888ToNv21(image);
+                            mCallback.onFramePreview(data, image.getWidth(), image.getHeight(), mDisplayOrientation);
+                        } catch (RuntimeException conversionError) {
+                            Log.w(TAG, "Dropping inaccessible camera frame during YUV conversion", conversionError);
+                        }
                     }
-                    image.close();
                 }
+            } catch (RuntimeException frameError) {
+                Log.w(TAG, "Skipping unstable camera frame", frameError);
             }
         }
 
