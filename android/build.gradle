@@ -22,13 +22,14 @@ buildscript {
 apply plugin: 'com.android.library'
 
 android {
-  compileSdkVersion safeExtGet('compileSdkVersion', 35)
-  buildToolsVersion safeExtGet('buildToolsVersion', '34.0.0')
+  namespace 'org.reactnative.camera'
+  compileSdkVersion safeExtGet('compileSdkVersion', 36)
+  buildToolsVersion safeExtGet('buildToolsVersion', '35.0.0')
 
   defaultConfig {
     multiDexEnabled true
     minSdkVersion safeExtGet('minSdkVersion', 24)
-    targetSdkVersion safeExtGet('targetSdkVersion', 34)
+    targetSdkVersion safeExtGet('targetSdkVersion', 35)
   }
 
   flavorDimensions "react-native-camera"
@@ -72,8 +73,14 @@ dependencies {
   implementation "androidx.annotation:annotation:1.0.0"
   implementation "androidx.legacy:legacy-support-v4:1.0.0"
   implementation "com.google.android.gms:play-services-mlkit-text-recognition:19.0.1"
-  generalImplementation "com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1"
-  generalImplementation "com.google.android.gms:play-services-mlkit-face-detection:17.1.0"
+  // General flavor - uses standalone ML Kit
+  generalImplementation "com.google.mlkit:barcode-scanning:17.3.0"
+  generalImplementation "com.google.mlkit:text-recognition:16.0.1"
+  generalImplementation "com.google.mlkit:vision-common:17.3.0"
+  generalImplementation "com.google.mlkit:face-detection:16.1.7"
+  // MLKit flavor
   mlkitImplementation "com.google.mlkit:barcode-scanning:17.3.0"
+  mlkitImplementation "com.google.mlkit:text-recognition:16.0.1"
+  mlkitImplementation "com.google.mlkit:vision-common:17.3.0"
   mlkitImplementation "com.google.mlkit:face-detection:16.1.7"
 }
