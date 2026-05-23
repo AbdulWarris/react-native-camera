@@ -293,17 +293,26 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
         final byte[] out = new byte[frameSize + (frameSize / 2)];
 
         final Image.Plane[] planes = image.getPlanes();
-        final ByteBuffer yBuffer = planes[0].getBuffer();
-        final ByteBuffer uBuffer = planes[1].getBuffer();
-        final ByteBuffer vBuffer = planes[2].getBuffer();
+        final byte[] yData = toByteArray(planes[0].getBuffer());
+        final byte[] uData = toByteArray(planes[1].getBuffer());
+        final byte[] vData = toByteArray(planes[2].getBuffer());
+
+        if (yData == null || uData == null || vData == null) {
+            throw new RuntimeException("Plane buffer conversion failed");
+        }
 
         final int yRowStride = planes[0].getRowStride();
         final int yPixelStride = planes[0].getPixelStride();
+        final int yLastIndex = (height - 1) * yRowStride + (width - 1) * yPixelStride;
+        if (yLastIndex < 0 || yLastIndex >= yData.length) {
+            throw new RuntimeException("Invalid Y plane bounds: lastIndex=" + yLastIndex + ", len=" + yData.length);
+        }
+
         int outPos = 0;
         for (int row = 0; row < height; row++) {
             int rowStart = row * yRowStride;
             for (int col = 0; col < width; col++) {
-                out[outPos++] = yBuffer.get(rowStart + col * yPixelStride);
+                out[outPos++] = yData[rowStart + col * yPixelStride];
             }
         }
 
@@ -311,18 +320,46 @@ class Camera2 extends CameraViewImpl implements MediaRecorder.OnInfoListener, Me
         final int uPixelStride = planes[1].getPixelStride();
         final int vRowStride = planes[2].getRowStride();
         final int vPixelStride = planes[2].getPixelStride();
+        final int chromaWidth = width / 2;
+        final int chromaHeight = height / 2;
+
+        final int uLastIndex = (chromaHeight - 1) * uRowStride + (chromaWidth - 1) * uPixelStride;
+        final int vLastIndex = (chromaHeight - 1) * vRowStride + (chromaWidth - 1) * vPixelStride;
+        if (uLastIndex < 0 || uLastIndex >= uData.length) {
+            throw new RuntimeException("Invalid U plane bounds: lastIndex=" + uLastIndex + ", len=" + uData.length);
+        }
+        if (vLastIndex < 0 || vLastIndex >= vData.length) {
+            throw new RuntimeException("Invalid V plane bounds: lastIndex=" + vLastIndex + ", len=" + vData.length);
+        }
 
         outPos = frameSize;
-        for (int row = 0; row < height / 2; row++) {
+        for (int row = 0; row < chromaHeight; row++) {
             int uRowStart = row * uRowStride;
             int vRowStart = row * vRowStride;
-            for (int col = 0; col < width / 2; col++) {
-                out[outPos++] = vBuffer.get(vRowStart + col * vPixelStride);
-                out[outPos++] = uBuffer.get(uRowStart + col * uPixelStride);
+            for (int col = 0; col < chromaWidth; col++) {
+                out[outPos++] = vData[vRowStart + col * vPixelStride];
+                out[outPos++] = uData[uRowStart + col * uPixelStride];
             }
         }
 
         return out;
+    }
+
+    private byte[] toByteArray(ByteBuffer buffer) {
+        if (buffer == null) {
+            return null;
+        }
+
+        final ByteBuffer duplicate = buffer.duplicate();
+        duplicate.rewind();
+        final int length = duplicate.remaining();
+        if (length <= 0) {
+            return null;
+        }
+
+        final byte[] data = new byte[length];
+        duplicate.get(data);
+        return data;
     }
 
     Camera2(Callback callback, PreviewImpl preview, Context context, Handler bgHandler) {
