@@ -63,6 +63,7 @@
 
 - (id)initWithBridge:(RCTBridge *)bridge;
 - (instancetype)initWithFrame:(CGRect)frame;
+- (void)updateType;
 - (void)updateFlashMode;
 - (void)updateFocusMode;
 - (void)updateFocusDepth;
